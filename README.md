@@ -173,3 +173,71 @@ After installation, a detailed configuration file is created at `~/mailhog_detai
 - The SMTP server does not require authentication
 - Consider firewall rules if exposing ports to external networks
 - Not recommended for production environments
+
+## install_postgres.sh
+
+This script installs and configures PostgreSQL with TimescaleDB and pgvector extensions on WSL2. It provides a complete setup with all necessary components and extensions.
+
+### Usage
+
+1. Save the script to a file (e.g., `install_postgres.sh`)
+2. Make it executable: `chmod +x install_postgres.sh`
+3. Run the script: `./install_postgres.sh`
+
+### What the Script Does
+
+The script performs these tasks:
+
+- Updates system packages and installs required dependencies
+- Installs PostgreSQL 17 with development packages
+- Installs and configures TimescaleDB extension
+- Compiles and installs pgvector extension from source
+- Configures PostgreSQL for optimal performance using timescaledb-tune
+- Sets up a default password for the postgres user
+- Enables TimescaleDB and pgvector extensions in template1 database
+- Saves all installation details to postgres_details.txt
+
+### Default Configuration
+
+- PostgreSQL Version: 17
+- Default User: postgres
+- Default Password: 1234567890
+- Default Port: 5432
+- Installed Extensions:
+  - TimescaleDB
+  - pgvector (for vector similarity search)
+
+### Post-Installation Details
+
+After installation, you can find all configuration details in `postgres_details.txt`, which includes:
+- Installation date
+- PostgreSQL version
+- Installed extensions and their versions
+- Database connection details
+- Port configuration
+
+### Managing PostgreSQL
+
+You can manage the PostgreSQL service using these commands:
+
+```bash
+sudo systemctl start postgresql    # Start the service
+sudo systemctl stop postgresql     # Stop the service
+sudo systemctl status postgresql   # Check service status
+sudo systemctl restart postgresql  # Restart the service
+```
+
+### Connecting to PostgreSQL
+
+You can connect to your PostgreSQL server using:
+
+```bash
+psql -U postgres -h localhost
+```
+
+### Security Considerations
+
+- The default password (1234567890) should be changed in production environments
+- Consider configuring pg_hba.conf for stricter access control
+- Regularly update PostgreSQL and extensions for security patches
+- Use the postgres-remote-access.sh script if you need to configure remote access

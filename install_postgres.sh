@@ -46,6 +46,25 @@ sudo -u postgres psql -d template1 -c 'CREATE EXTENSION IF NOT EXISTS timescaled
 # Add pgvector extension to template1
 sudo -u postgres psql -d template1 -c 'CREATE EXTENSION IF NOT EXISTS vector;'
 
+# Save installation details to a file
+echo "Creating installation details file..."
+cat << EOF > postgres_details.txt
+PostgreSQL Installation Details
+-----------------------------
+
+Date of Installation: $(date)
+PostgreSQL Version: $(psql -V)
+TimescaleDB Version: $(psql -d template1 -c "SELECT extversion FROM pg_extension WHERE extname = 'timescaledb';" -t)
+pgvector Version: $(psql -d template1 -c "SELECT extversion FROM pg_extension WHERE extname = 'vector';" -t)
+Database Port: 5432
+Database User: postgres
+Database Password: 1234567890
+Extensions Installed:
+- TimescaleDB
+- pgvector
+EOF
+
+echo "Installation details have been saved to postgres_details.txt"
 echo "Installation complete!"
 echo "PostgreSQL, TimescaleDB, and pgvector have been installed and configured."
 echo "The PostgreSQL password has been set to: 1234567890"

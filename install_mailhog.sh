@@ -125,15 +125,28 @@ if [[ "$CREATE_SERVICE" == "yes" ]]; then
     if command -v systemctl &> /dev/null; then
         echo -e "${YELLOW}Creating systemd service...${NC}"
         
+        # Create logs directory
+        sudo mkdir -p /var/log/mailhog
+        sudo chown $USER:$USER /var/log/mailhog
+
         sudo tee "$SERVICE_FILE" > /dev/null << EOF
 [Unit]
 Description=MailHog Email Catcher
 After=network.target
+StartLimitIntervalSec=0
 
 [Service]
-ExecStart=$INSTALL_DIR/MailHog -smtp-bind-addr 0.0.0.0:$SMTP_PORT -ui-bind-addr 0.0.0.0:$WEB_PORT
-Restart=always
+Type=simple
 User=$USER
+Group=$USER
+WorkingDirectory=/home/$USER
+Environment=HOME=/home/$USER
+ExecStart=$INSTALL_DIR/MailHog -smtp-bind-addr 0.0.0.0:$SMTP_PORT -ui-bind-addr 0.0.0.0:$WEB_PORT
+StandardOutput=append:/var/log/mailhog/mailhog.log
+StandardError=append:/var/log/mailhog/mailhog.error.log
+Restart=always
+RestartSec=5
+StartLimitInterval=0
 
 [Install]
 WantedBy=multi-user.target

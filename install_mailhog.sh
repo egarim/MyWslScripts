@@ -163,18 +163,55 @@ echo -e "SMTP server port: ${GREEN}$SMTP_PORT${NC}"
 echo -e "Web interface port: ${GREEN}$WEB_PORT${NC}"
 echo -e "Startup script created: ${GREEN}$STARTUP_SCRIPT${NC}"
 
+# Save installation details to a file
+DETAILS_FILE="$HOME/mailhog_details.txt"
+echo "=== MailHog Installation Details ===" > "$DETAILS_FILE"
+echo "Installation Directory: $INSTALL_DIR" >> "$DETAILS_FILE"
+echo "SMTP Server Port: $SMTP_PORT" >> "$DETAILS_FILE"
+echo "Web Interface Port: $WEB_PORT" >> "$DETAILS_FILE"
+echo "Startup Script: $STARTUP_SCRIPT" >> "$DETAILS_FILE"
+
+echo -e "\n=== Service Management Commands ===" >> "$DETAILS_FILE"
+echo "To start MailHog manually:" >> "$DETAILS_FILE"
+echo "  $STARTUP_SCRIPT" >> "$DETAILS_FILE"
+
+echo -e "\nTo stop MailHog when running manually:" >> "$DETAILS_FILE"
+echo "  pkill MailHog" >> "$DETAILS_FILE"
+
+echo -e "\nTo check if MailHog is running:" >> "$DETAILS_FILE"
+echo "  ps aux | grep MailHog" >> "$DETAILS_FILE"
+
+if [[ "$CREATE_SERVICE" == "yes" ]]; then
+    echo -e "\nSystemd Service Commands:" >> "$DETAILS_FILE"
+    echo "  Start service:   sudo systemctl start mailhog.service" >> "$DETAILS_FILE"
+    echo "  Stop service:    sudo systemctl stop mailhog.service" >> "$DETAILS_FILE"
+    echo "  Restart service: sudo systemctl restart mailhog.service" >> "$DETAILS_FILE"
+    echo "  Check status:    sudo systemctl status mailhog.service" >> "$DETAILS_FILE"
+    echo "  Enable on boot:  sudo systemctl enable mailhog.service" >> "$DETAILS_FILE"
+    echo "  Disable on boot: sudo systemctl disable mailhog.service" >> "$DETAILS_FILE"
+    echo "  View logs:       sudo journalctl -u mailhog.service" >> "$DETAILS_FILE"
+fi
+
 if [[ "$CREATE_SERVICE" == "yes" ]]; then
     echo -e "Systemd service: ${GREEN}Created and enabled${NC}"
     echo -e "To manage service: ${YELLOW}sudo systemctl start|stop|status mailhog.service${NC}"
+    echo "Systemd Service: Created and enabled" >> "$DETAILS_FILE"
+    echo "Service Management: sudo systemctl start|stop|status mailhog.service" >> "$DETAILS_FILE"
 else
     echo -e "To start MailHog: ${YELLOW}$STARTUP_SCRIPT${NC}"
+    echo "To start MailHog: $STARTUP_SCRIPT" >> "$DETAILS_FILE"
 fi
 
-echo -e "\nSMTP Settings for your applications:"
-echo -e "Host: ${GREEN}localhost${NC} (or your WSL2 IP for external access)"
-echo -e "Port: ${GREEN}$SMTP_PORT${NC}"
-echo -e "Authentication: ${GREEN}None${NC}"
-echo -e "Encryption: ${GREEN}None${NC}"
-echo -e "Web Interface: ${GREEN}http://localhost:$WEB_PORT${NC}"
+echo -e "\nSMTP Settings for your applications:" >> "$DETAILS_FILE"
+echo "Host: localhost (or your WSL2 IP for external access)" >> "$DETAILS_FILE"
+echo "Port: $SMTP_PORT" >> "$DETAILS_FILE"
+echo "Authentication: None" >> "$DETAILS_FILE"
+echo "Encryption: None" >> "$DETAILS_FILE"
+echo "Web Interface: http://localhost:$WEB_PORT" >> "$DETAILS_FILE"
+
+echo -e "\nTo find your WSL2 IP address, run:" >> "$DETAILS_FILE"
+echo "ip addr show eth0 | grep -oP '(?<=inet\s)\d+(\.\d+){3}'" >> "$DETAILS_FILE"
+
+echo -e "\n${GREEN}Installation details have been saved to: $DETAILS_FILE${NC}"
 
 exit 0

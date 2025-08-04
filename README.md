@@ -95,3 +95,81 @@ ipfs ls <hash>         # List directory contents
 - Consider configuring firewall rules to restrict access to IPFS ports
 - In production environments, configure specific allowed IP addresses
 - Regularly update IPFS to the latest version for security patches
+
+## install_mailhog.sh
+
+This script installs and configures MailHog, a simple SMTP testing server with a web interface that captures and displays emails for development purposes.
+
+### Usage
+
+1. Save the script to a file (e.g., `install_mailhog.sh`)
+2. Make it executable: `chmod +x install_mailhog.sh`
+3. Run the script: `./install_mailhog.sh`
+
+### What the Script Does
+
+The script performs these tasks:
+
+- Checks for existing MailHog installation and offers reinstallation option
+- Installs Go if not already present (required for MailHog)
+- Installs MailHog from source
+- Configures custom ports for SMTP and Web Interface
+- Creates a convenient startup script
+- Optionally creates and enables a systemd service
+- Saves all configuration details to a reference file
+
+### Default Ports
+
+- SMTP Port: 1025 (For sending emails)
+- Web Interface Port: 8025 (For viewing captured emails)
+
+### Configuration Options
+
+During installation, you can customize:
+- Installation directory (default: ~/go/bin)
+- SMTP port
+- Web interface port
+- Auto-start option
+- Systemd service creation
+
+### Managing MailHog
+
+The script creates two ways to run MailHog:
+
+1. Using the startup script:
+```bash
+~/start-mailhog.sh    # Start MailHog
+pkill MailHog         # Stop MailHog
+```
+
+2. Using systemd service (if enabled during installation):
+```bash
+sudo systemctl start mailhog    # Start the service
+sudo systemctl stop mailhog     # Stop the service
+sudo systemctl status mailhog   # Check service status
+sudo systemctl enable mailhog   # Enable on boot
+sudo systemctl disable mailhog  # Disable on boot
+```
+
+### Accessing MailHog
+
+Once running, you can access MailHog through:
+- Web Interface: `http://localhost:8025` (or custom port if configured)
+- SMTP Server: `localhost:1025` (or custom port if configured)
+
+### Installation Details
+
+After installation, a detailed configuration file is created at `~/mailhog_details.txt` containing:
+- Installation directory
+- Port configurations
+- Service management commands
+- SMTP settings for applications
+- Web interface access URL
+- WSL2 IP address information
+
+### Security Considerations
+
+- MailHog is designed for development and testing purposes only
+- The SMTP server does not require authentication
+- Consider firewall rules if exposing ports to external networks
+- Not recommended for production environments

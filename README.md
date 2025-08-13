@@ -10,10 +10,10 @@ This script installs and configures Keycloak with PostgreSQL integration on WSL2
 
 #### Option 2: Run Directly from Remote URL
 
-You can run the script directly from your GitHub repository using `curl` and `sudo bash -c`:
+You can run the script directly from your GitHub repository using `curl` and `bash -c`:
 
 ```
-sudo bash -c "$(curl -fsSL https://raw.githubusercontent.com/egarim/MyWslScripts/refs/heads/master/install_keycloak.sh)"
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/egarim/MyWslScripts/refs/heads/master/install_keycloak.sh)"
 ```
 
 This will download and execute the latest version of `install_keycloak.sh` from your repository.
@@ -130,10 +130,10 @@ This script installs and configures MailHog, a simple SMTP testing server with a
 
 #### Option 2: Run Directly from Remote URL
 
-You can run the script directly from your GitHub repository using `curl` and `sudo bash -c`:
+You can run the script directly from your GitHub repository using `curl` and `bash -c`:
 
 ```
-sudo bash -c "$(curl -fsSL https://raw.githubusercontent.com/egarim/MyWslScripts/refs/heads/master/install_mailhog.sh)"
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/egarim/MyWslScripts/refs/heads/master/install_mailhog.sh)"
 ```
 
 This will download and execute the latest version of `install_mailhog.sh` from your repository.
@@ -221,10 +221,10 @@ This script installs and configures PostgreSQL with TimescaleDB and pgvector ext
 
 #### Option 2: Run Directly from Remote URL
 
-You can run the script directly from your GitHub repository using `curl` and `sudo bash -c`:
+You can run the script directly from your GitHub repository using `curl` and `bash -c`:
 
 ```
-sudo bash -c "$(curl -fsSL https://raw.githubusercontent.com/egarim/MyWslScripts/refs/heads/master/install_postgres.sh)"
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/egarim/MyWslScripts/refs/heads/master/install_postgres.sh)"
 ```
 
 This will download and execute the latest version of `install_postgres.sh` from your repository.

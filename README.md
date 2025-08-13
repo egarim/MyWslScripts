@@ -1,3 +1,22 @@
+This script installs and configures Keycloak with PostgreSQL integration on WSL2.
+
+### Usage
+
+#### Option 1: Download and Run Locally
+
+1. Save the script to a file (e.g., `install_keycloak.sh`)
+2. Make it executable: `chmod +x install_keycloak.sh`
+3. Run the script: `./install_keycloak.sh`
+
+#### Option 2: Run Directly from Remote URL
+
+You can run the script directly from your GitHub repository using `curl` and `sudo bash -c`:
+
+```
+sudo bash -c "$(curl -fsSL https://raw.githubusercontent.com/egarim/MyWslScripts/refs/heads/master/install_keycloak.sh)"
+```
+
+This will download and execute the latest version of `install_keycloak.sh` from your repository.
 # MyWslScripts
 
 ## postgres-remote-access.sh
@@ -100,11 +119,24 @@ ipfs ls <hash>         # List directory contents
 
 This script installs and configures MailHog, a simple SMTP testing server with a web interface that captures and displays emails for development purposes.
 
+
 ### Usage
+
+#### Option 1: Download and Run Locally
 
 1. Save the script to a file (e.g., `install_mailhog.sh`)
 2. Make it executable: `chmod +x install_mailhog.sh`
 3. Run the script: `./install_mailhog.sh`
+
+#### Option 2: Run Directly from Remote URL
+
+You can run the script directly from your GitHub repository using `curl` and `sudo bash -c`:
+
+```
+sudo bash -c "$(curl -fsSL https://raw.githubusercontent.com/egarim/MyWslScripts/refs/heads/master/install_mailhog.sh)"
+```
+
+This will download and execute the latest version of `install_mailhog.sh` from your repository.
 
 ### What the Script Does
 
@@ -178,11 +210,24 @@ After installation, a detailed configuration file is created at `~/mailhog_detai
 
 This script installs and configures PostgreSQL with TimescaleDB and pgvector extensions on WSL2. It provides a complete setup with all necessary components and extensions.
 
+
 ### Usage
+
+#### Option 1: Download and Run Locally
 
 1. Save the script to a file (e.g., `install_postgres.sh`)
 2. Make it executable: `chmod +x install_postgres.sh`
 3. Run the script: `./install_postgres.sh`
+
+#### Option 2: Run Directly from Remote URL
+
+You can run the script directly from your GitHub repository using `curl` and `sudo bash -c`:
+
+```
+sudo bash -c "$(curl -fsSL https://raw.githubusercontent.com/egarim/MyWslScripts/refs/heads/master/install_postgres.sh)"
+```
+
+This will download and execute the latest version of `install_postgres.sh` from your repository.
 
 ### What the Script Does
 
@@ -241,3 +286,163 @@ psql -U postgres -h localhost
 - Consider configuring pg_hba.conf for stricter access control
 - Regularly update PostgreSQL and extensions for security patches
 - Use the postgres-remote-access.sh script if you need to configure remote access
+
+## install_docker.sh
+
+This script installs Docker CE (Community Edition) on WSL2, providing a complete setup compatible with both ARM64 and x64 architectures.
+
+### Usage
+
+1. Save the script to a file (e.g., `install_docker.sh`)
+2. Make it executable: `chmod +x install_docker.sh`
+3. Run the script: `./install_docker.sh`
+
+### What the Script Does
+
+The script performs these tasks in order:
+
+- Verifies the WSL2 environment
+- Updates system packages and installs prerequisites
+- Adds Docker's official GPG key and repository
+- Installs Docker CE, CLI tools, and containerd
+- Starts the Docker service
+- Adds the current user to the docker group
+- Verifies the installation by running a test container
+- Offers to configure Docker auto-start on WSL2 launch
+
+### Post-Installation Features
+
+- Automatically detects and configures for your system architecture
+- Supports both bash and zsh shell configurations
+- Adds Docker service auto-start capability (optional)
+- Provides immediate verification of the installation
+
+### Managing Docker
+
+After installation, you can use these commands to manage Docker:
+
+```bash
+sudo service docker start     # Start Docker service
+sudo service docker stop      # Stop Docker service
+sudo service docker status    # Check Docker service status
+docker ps                     # List running containers
+docker images                # List available images
+```
+
+### Important Notes
+
+- WSL2 is required for Docker to function properly
+- You may need to restart your WSL2 session after installation for group changes to take effect
+- Docker runs in command-line mode (no Desktop UI) in WSL2
+- The script automatically handles architecture-specific requirements
+
+### Security Considerations
+
+- Only use the official Docker repository (handled automatically by the script)
+- The script adds your user to the docker group for non-root access
+- Regular updates are recommended for security patches
+- Review container permissions and network exposure when deploying containers
+
+### Troubleshooting
+
+If you encounter issues after installation:
+1. Verify WSL2 is running: `wsl --status`
+2. Ensure Docker service is running: `sudo service docker status`
+3. Try restarting your WSL2 session
+4. Verify group membership: `groups $USER`
+
+## rabbitmq-manager.sh
+
+This script provides a comprehensive management interface for running RabbitMQ in Docker on WSL2. It handles installation, configuration, and management of a RabbitMQ instance with the management UI enabled.
+
+### Prerequisites
+
+- Docker must be installed and running
+- WSL2 environment
+
+### Default Configuration
+
+- Container Name: rabbitmq
+- Image: rabbitmq:3-management
+- AMQP Port: 5672
+- Management UI Port: 15672
+- Default Username: admin
+- Default Password: password
+- Data Volume: rabbitmq_data
+
+### Usage Examples
+
+First, make the script executable:
+```bash
+chmod +x rabbitmq-manager.sh
+```
+
+Then you can use any of these commands:
+```bash
+# Install and start RabbitMQ
+./rabbitmq-manager.sh install
+
+# Check status
+./rabbitmq-manager.sh status
+
+# View logs
+./rabbitmq-manager.sh logs
+
+# Stop RabbitMQ
+./rabbitmq-manager.sh stop
+
+# Start RabbitMQ
+./rabbitmq-manager.sh start
+
+# Restart RabbitMQ
+./rabbitmq-manager.sh restart
+
+# Remove everything
+./rabbitmq-manager.sh remove
+```
+
+### Available Commands
+
+- `install` - Installs and starts RabbitMQ container with persistence
+- `start` - Starts an existing RabbitMQ container
+- `stop` - Stops the running RabbitMQ container
+- `restart` - Restarts the RabbitMQ container
+- `status` - Shows current status, ports, and connection details
+- `logs` - Displays container logs in follow mode
+- `remove` - Removes the container and optionally the data volume
+- `help` - Shows usage information and configuration details
+
+### Features
+
+- Persistent data storage using Docker volumes
+- Management UI interface enabled by default
+- Automatic container restart on failure
+- Colored status output for better readability
+- Volume preservation option during removal
+- Health checks for management UI accessibility
+
+### Accessing RabbitMQ
+
+After installation, you can access:
+
+- Management UI: http://localhost:15672
+  - Username: admin
+  - Password: password
+- AMQP Connection: localhost:5672
+
+### Data Persistence
+
+The script creates a Docker volume named `rabbitmq_data` to persist:
+- Queue definitions
+- Messages
+- User accounts
+- Virtual hosts
+
+When removing the container using the `remove` command, you'll be given the option to preserve or delete this data.
+
+### Security Notes
+
+- Default credentials should be changed in production
+- Management UI is exposed on all interfaces
+- Consider firewall rules for port access
+- The container restarts automatically unless explicitly stopped

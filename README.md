@@ -288,6 +288,25 @@ psql -U postgres -h localhost
 - Use the postgres-remote-access.sh script if you need to configure remote access
 
 ## install_docker.sh
+This script installs Docker CE (Community Edition) on WSL2, providing a complete setup compatible with both ARM64 and x64 architectures.
+
+### Usage
+
+#### Option 1: Download and Run Locally
+
+1. Save the script to a file (e.g., `install_docker.sh`)
+2. Make it executable: `chmod +x install_docker.sh`
+3. Run the script: `./install_docker.sh`
+
+#### Option 2: Run Directly from Remote URL
+
+You can run the script directly from your GitHub repository using `curl` and `bash -c`:
+
+```
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/egarim/MyWslScripts/refs/heads/master/install_docker.sh)"
+```
+
+This will download and execute the latest version of `install_docker.sh` from your repository.
 
 This script installs Docker CE (Community Edition) on WSL2, providing a complete setup compatible with both ARM64 and x64 architectures.
 

@@ -121,7 +121,7 @@ fi
 DOCKER_CMD="docker run -d --name $CONTAINER_NAME --restart unless-stopped"
 DOCKER_CMD="$DOCKER_CMD -e ACCEPT_EULA=Y"
 
-# Add authentication settings for latest version
+# Add authentication settings for latest version only
 if [ "$VERSION_CHOICE" = "1" ]; then
     if [ "$AUTH_CHOICE" = "1" ]; then
         DOCKER_CMD="$DOCKER_CMD -e SEQ_FIRSTRUN_NOAUTHENTICATION=true"

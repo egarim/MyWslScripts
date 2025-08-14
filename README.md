@@ -370,7 +370,7 @@ If you encounter issues after installation:
 3. Try restarting your WSL2 session
 4. Verify group membership: `groups $USER`
 
-## rabbitmq-manager.sh
+## install_rabbitmq_docker.sh
 
 This script provides a comprehensive management interface for running RabbitMQ in Docker on WSL2. It handles installation, configuration, and management of a RabbitMQ instance with the management UI enabled.
 
@@ -389,35 +389,53 @@ This script provides a comprehensive management interface for running RabbitMQ i
 - Default Password: password
 - Data Volume: rabbitmq_data
 
+### Usage
+
+#### Option 1: Download and Run Locally
+
+1. Save the script to a file (e.g., `install_rabbitmq_docker.sh`)
+2. Make it executable: `chmod +x install_rabbitmq_docker.sh`
+3. Run the script: `./install_rabbitmq_docker.sh [command]`
+
+#### Option 2: Run Directly from Remote URL
+
+You can run the script directly from your GitHub repository using `curl` and `bash -c`:
+
+```
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/egarim/MyWslScripts/refs/heads/master/install_rabbitmq_docker.sh)"
+```
+
+This will download and execute the latest version of `install_rabbitmq_docker.sh` from your repository.
+
 ### Usage Examples
 
 First, make the script executable:
 ```bash
-chmod +x rabbitmq-manager.sh
+chmod +x install_rabbitmq_docker.sh
 ```
 
 Then you can use any of these commands:
 ```bash
 # Install and start RabbitMQ
-./rabbitmq-manager.sh install
+./install_rabbitmq_docker.sh install
 
 # Check status
-./rabbitmq-manager.sh status
+./install_rabbitmq_docker.sh status
 
 # View logs
-./rabbitmq-manager.sh logs
+./install_rabbitmq_docker.sh logs
 
 # Stop RabbitMQ
-./rabbitmq-manager.sh stop
+./install_rabbitmq_docker.sh stop
 
 # Start RabbitMQ
-./rabbitmq-manager.sh start
+./install_rabbitmq_docker.sh start
 
 # Restart RabbitMQ
-./rabbitmq-manager.sh restart
+./install_rabbitmq_docker.sh restart
 
 # Remove everything
-./rabbitmq-manager.sh remove
+./install_rabbitmq_docker.sh remove
 ```
 
 ### Available Commands

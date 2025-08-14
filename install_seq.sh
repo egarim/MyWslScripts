@@ -35,8 +35,9 @@ CONTAINER_NAME=${CONTAINER_NAME:-seq}
 echo ""
 echo "📋 Seq Version Selection:"
 echo "1. Latest (2025.2) - Requires authentication setup"
-echo "2. Stable (2024.4) - No authentication required"
-read -p "Choose version (1/2, default: 2): " VERSION_CHOICE
+echo "2. Stable (2024.2) - No authentication required"
+echo "3. Older Stable (2023.4) - No authentication required"
+read -p "Choose version (1/2/3, default: 2): " VERSION_CHOICE
 VERSION_CHOICE=${VERSION_CHOICE:-2}
 
 if [ "$VERSION_CHOICE" = "1" ]; then
@@ -59,8 +60,10 @@ if [ "$VERSION_CHOICE" = "1" ]; then
             exit 1
         fi
     fi
+elif [ "$VERSION_CHOICE" = "2" ]; then
+    SEQ_IMAGE="datalust/seq:2024.2"
 else
-    SEQ_IMAGE="datalust/seq:2024.4"
+    SEQ_IMAGE="datalust/seq:2023.4"
 fi
 
 # Data persistence

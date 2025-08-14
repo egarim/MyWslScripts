@@ -105,13 +105,9 @@ install_rabbitmq() {
     
     if [ $? -eq 0 ]; then
         print_success "RabbitMQ installed and started successfully!"
-        print_status "AMQP Port: ${AMQP_PORT}"
-        print_status "Management UI: http://localhost:${MGMT_PORT}"
-        print_status "Username: ${DEFAULT_USER}"
-        print_status "Password: ${DEFAULT_PASS}"
         print_status "Waiting for RabbitMQ to be ready..."
-        sleep 10
-        show_status
+        sleep 15
+        show_installation_info
     else
         print_error "Failed to install RabbitMQ"
         exit 1
@@ -208,6 +204,64 @@ show_status() {
     echo
 }
 
+show_installation_info() {
+    echo
+    echo "=========================================="
+    echo "     RabbitMQ Docker Installation Complete"
+    echo "=========================================="
+    echo
+    print_success "RabbitMQ is now running in Docker!"
+    echo
+    echo "📋 Connection Information:"
+    echo "   • Management UI: http://localhost:${MGMT_PORT}"
+    echo "   • AMQP Connection: localhost:${AMQP_PORT}"
+    echo "   • Username: ${DEFAULT_USER}"
+    echo "   • Password: ${DEFAULT_PASS}"
+    echo
+    echo "🔧 Management Commands:"
+    echo "   • Start:    $0 start"
+    echo "   • Stop:     $0 stop"
+    echo "   • Restart:  $0 restart"
+    echo "   • Status:   $0 status"
+    echo "   • Logs:     $0 logs"
+    echo "   • Remove:   $0 remove"
+    echo
+    echo "📊 Quick Actions:"
+    echo "   • View Management UI: Open http://localhost:${MGMT_PORT} in your browser"
+    echo "   • Check Status: $0 status"
+    echo "   • View Real-time Logs: $0 logs"
+    echo
+    
+    # Get WSL2 IP for remote access
+    if command -v hostname &> /dev/null; then
+        WSL_IP=$(hostname -I | awk '{print $1}')
+        if [ ! -z "$WSL_IP" ]; then
+            echo "🌐 Remote Access (from Windows host):"
+            echo "   • Management UI: http://${WSL_IP}:${MGMT_PORT}"
+            echo "   • AMQP Connection: ${WSL_IP}:${AMQP_PORT}"
+            echo
+        fi
+    fi
+    
+    # Check if management UI is accessible
+    print_status "Checking Management UI accessibility..."
+    if command -v curl &> /dev/null; then
+        sleep 5  # Give it a moment to fully start
+        HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:${MGMT_PORT} 2>/dev/null)
+        if [ "$HTTP_CODE" = "200" ]; then
+            print_success "✅ Management UI is accessible at http://localhost:${MGMT_PORT}"
+        else
+            print_warning "⚠️  Management UI might not be ready yet. Please wait a moment and try again."
+        fi
+    else
+        print_status "💡 Install curl to test Management UI accessibility automatically"
+    fi
+    
+    echo
+    echo "🐰 Happy messaging with RabbitMQ!"
+    echo "=========================================="
+}
+
 show_logs() {
     check_docker
     
@@ -302,10 +356,27 @@ case "${1:-}" in
         show_help
         ;;
     "")
-        print_error "No command specified"
+        echo "🐰 RabbitMQ Docker Manager"
+        echo "=========================="
         echo
-        show_help
-        exit 1
+        if container_exists; then
+            print_status "RabbitMQ container already exists"
+            show_status
+        else
+            print_status "RabbitMQ is not installed yet"
+            echo
+            echo "To get started, run one of these commands:"
+            echo "  $0 install   - Install and start RabbitMQ"
+            echo "  $0 help      - Show all available commands"
+            echo
+            read -p "Would you like to install RabbitMQ now? (y/N): " -n 1 -r
+            echo
+            if [[ $REPLY =~ ^[Yy]$ ]]; then
+                install_rabbitmq
+            else
+                print_status "You can install RabbitMQ later by running: $0 install"
+            fi
+        fi
         ;;
     *)
         print_error "Unknown command: $1"

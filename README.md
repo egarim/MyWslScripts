@@ -372,7 +372,7 @@ If you encounter issues after installation:
 
 ## install_rabbitmq_docker.sh
 
-This script provides a comprehensive management interface for running RabbitMQ in Docker on WSL2. It handles installation, configuration, and management of a RabbitMQ instance with the management UI enabled.
+This script provides a comprehensive management interface for running RabbitMQ in Docker on WSL2. It handles installation, configuration, and management of a RabbitMQ instance with the management UI enabled. The script features an interactive installation process and provides detailed connection information upon completion.
 
 ### Prerequisites
 
@@ -407,6 +407,16 @@ bash -c "$(curl -fsSL https://raw.githubusercontent.com/egarim/MyWslScripts/refs
 
 This will download and execute the latest version of `install_rabbitmq_docker.sh` from your repository.
 
+#### Option 3: Interactive Installation
+
+Simply run the script without any commands for an interactive installation:
+
+```bash
+./install_rabbitmq_docker.sh
+```
+
+This will check if RabbitMQ is already installed and prompt you to install it if it's not present.
+
 ### Usage Examples
 
 First, make the script executable:
@@ -416,7 +426,10 @@ chmod +x install_rabbitmq_docker.sh
 
 Then you can use any of these commands:
 ```bash
-# Install and start RabbitMQ
+# Interactive mode (recommended for first-time users)
+./install_rabbitmq_docker.sh
+
+# Install and start RabbitMQ directly
 ./install_rabbitmq_docker.sh install
 
 # Check status
@@ -438,6 +451,17 @@ Then you can use any of these commands:
 ./install_rabbitmq_docker.sh remove
 ```
 
+### What the Script Does
+
+Upon successful installation, the script will display:
+
+- Complete connection information (local and remote access)
+- Management commands for controlling the container
+- Direct links to the Management UI
+- WSL2 IP address for remote access from Windows host
+- Real-time accessibility check of the Management UI
+- Quick action suggestions
+
 ### Available Commands
 
 - `install` - Installs and starts RabbitMQ container with persistence
@@ -451,21 +475,36 @@ Then you can use any of these commands:
 
 ### Features
 
-- Persistent data storage using Docker volumes
-- Management UI interface enabled by default
-- Automatic container restart on failure
-- Colored status output for better readability
-- Volume preservation option during removal
-- Health checks for management UI accessibility
+- **Interactive Installation**: User-friendly prompts for first-time setup
+- **Comprehensive Information Display**: Shows all connection details and management commands after installation
+- **Remote Access Support**: Provides WSL2 IP for access from Windows host
+- **Real-time Health Checks**: Automatically verifies Management UI accessibility
+- **Persistent Data Storage**: Uses Docker volumes for data persistence
+- **Management UI Interface**: Enabled by default with admin credentials
+- **Automatic Container Restart**: Container restarts on failure
+- **Colored Status Output**: Better readability with color-coded messages
+- **Volume Preservation**: Option to preserve or delete data during removal
 
 ### Accessing RabbitMQ
 
 After installation, you can access:
 
-- Management UI: http://localhost:15672
+- **Management UI**: http://localhost:15672
   - Username: admin
   - Password: password
-- AMQP Connection: localhost:5672
+- **AMQP Connection**: localhost:5672
+- **Remote Access** (from Windows host): http://[WSL2-IP]:15672
+
+### Post-Installation Information
+
+The script provides detailed information after installation including:
+
+- Management UI URL and credentials
+- AMQP connection details
+- Container management commands
+- WSL2 IP address for remote access
+- Quick action suggestions
+- Real-time accessibility status
 
 ### Data Persistence
 
@@ -474,12 +513,14 @@ The script creates a Docker volume named `rabbitmq_data` to persist:
 - Messages
 - User accounts
 - Virtual hosts
+- Configuration settings
 
 When removing the container using the `remove` command, you'll be given the option to preserve or delete this data.
 
 ### Security Notes
 
-- Default credentials should be changed in production
+- Default credentials (admin/password) should be changed in production
 - Management UI is exposed on all interfaces
-- Consider firewall rules for port access
+- Consider configuring firewall rules for port access
 - The container restarts automatically unless explicitly stopped
+- Use strong passwords and proper authentication in production environments

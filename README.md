@@ -1,3 +1,7 @@
+# MyWslScripts
+
+## install_keycloak.sh
+
 This script installs and configures Keycloak with PostgreSQL integration on WSL2.
 
 ### Usage
@@ -17,7 +21,28 @@ bash -c "$(curl -fsSL https://raw.githubusercontent.com/egarim/MyWslScripts/refs
 ```
 
 This will download and execute the latest version of `install_keycloak.sh` from your repository.
-# MyWslScripts
+
+## install_seq.sh
+
+This script installs and configures Seq Log Server with Docker integration on WSL2.
+
+### Usage
+
+#### Option 1: Download and Run Locally
+
+1. Save the script to a file (e.g., `install_seq.sh`)
+2. Make it executable: `chmod +x install_seq.sh`
+3. Run the script: `./install_seq.sh`
+
+#### Option 2: Run Directly from Remote URL
+
+You can run the script directly from your GitHub repository using `curl` and `bash -c`:
+
+```
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/egarim/MyWslScripts/refs/heads/master/ProductionLinux/SeqSerilogServer/install_seq.sh)"
+```
+
+This will download and execute the latest version of `install_seq.sh` from your repository.
 
 ## postgres-remote-access.sh
 
@@ -524,139 +549,3 @@ When removing the container using the `remove` command, you'll be given the opti
 - Consider configuring firewall rules for port access
 - The container restarts automatically unless explicitly stopped
 - Use strong passwords and proper authentication in production environments
-
-## install_seq.sh
-
-This script installs and configures Seq (a centralized structured logging service) using Docker on WSL2. Seq is particularly useful for .NET/C# applications using Serilog for structured logging, providing a powerful web-based interface for log analysis and searching.
-
-### Prerequisites
-
-- Docker must be installed and running
-- WSL2 environment
-
-### Default Configuration
-
-- Container Name: seq
-- Default Port: 5341
-- Image: datalust/seq:latest
-- Data Persistence: Optional (default: enabled)
-- Log Retention: 7 days (configurable)
-
-### Usage
-
-#### Option 1: Download and Run Locally
-
-1. Save the script to a file (e.g., `install_seq.sh`)
-2. Make it executable: `chmod +x install_seq.sh`
-3. Run the script: `./install_seq.sh`
-
-#### Option 2: Run Directly from Remote URL
-
-You can run the script directly from your GitHub repository using `curl` and `bash -c`:
-
-```
-bash -c "$(curl -fsSL https://raw.githubusercontent.com/egarim/MyWslScripts/refs/heads/master/install_seq.sh)"
-```
-
-This will download and execute the latest version of `install_seq.sh` from your repository.
-
-### What the Script Does
-
-The script provides an interactive installation process that:
-
-- Verifies Docker is installed and running
-- Prompts for custom configuration options (port, container name, data persistence)
-- Sets up data persistence with proper permissions
-- Configures admin password and log retention settings
-- Handles existing container conflicts
-- Provides comprehensive connection information for C# applications
-- Creates a detailed information file (`seq_info.txt`)
-- Tests connectivity and provides ready status
-
-### Configuration Options
-
-During installation, you can customize:
-
-- **Port**: Web interface port (default: 5341)
-- **Container Name**: Docker container name (default: seq)
-- **Data Persistence**: Enable/disable data volume mounting
-- **Data Directory**: Local directory for persistent storage (default: ./seq-data)
-- **Admin Password**: Initial admin user password
-- **Log Retention**: Number of days to retain logs (default: 7, 0 for unlimited)
-
-### Post-Installation Information
-
-After successful installation, the script provides:
-
-- Web interface URL (local and WSL2 IP for Windows access)
-- Admin credentials (if configured)
-- C# Serilog configuration examples
-- Docker management commands
-- Connection URLs for applications
-- Installation details saved to `seq_info.txt`
-
-### Accessing Seq
-
-After installation, you can access:
-
-- **Web Interface**: http://localhost:5341 (or custom port)
-- **From Windows Host**: http://[WSL2-IP]:5341
-- **API Endpoint**: Same as web interface URL
-
-### C# Integration Example
-
-The script provides ready-to-use Serilog configuration:
-
-```csharp
-Log.Logger = new LoggerConfiguration()
-    .WriteTo.Seq("http://localhost:5341")
-    .CreateLogger();
-```
-
-### Managing Seq Container
-
-The script provides these management commands:
-
-```bash
-# View container logs
-docker logs seq
-
-# Stop Seq
-docker stop seq
-
-# Start Seq
-docker start seq
-
-# Remove Seq (with confirmation for data preservation)
-docker stop seq && docker rm seq
-```
-
-### Features
-
-- **Interactive Configuration**: User-friendly prompts for all settings
-- **Data Persistence**: Optional volume mounting for log data retention
-- **Security Configuration**: Admin password setup
-- **Retention Management**: Configurable log retention policies
-- **WSL2 Integration**: Automatic detection of WSL2 IP for Windows access
-- **C# Integration**: Ready-to-use Serilog configuration examples
-- **Health Checking**: Automatic verification of service availability
-- **Detailed Documentation**: Creates comprehensive installation summary
-
-### Use Cases
-
-Seq is ideal for:
-
-- **Structured Logging**: Centralized logging for .NET applications
-- **Log Analysis**: Powerful search and filtering capabilities
-- **Development**: Real-time log monitoring during development
-- **Debugging**: Structured log data for troubleshooting
-- **Microservices**: Centralized logging across multiple services
-
-### Security Considerations
-
-- Default installation accepts all connections
-- Configure admin password for production use
-- Consider firewall rules for port access
-- Use HTTPS in production environments
-- Implement proper authentication for production deployments
-- Review log retention policies for compliance requirements

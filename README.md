@@ -104,6 +104,54 @@ This script installs and configures Webmin Ultimate with Apache reverse proxy, S
 bash -c "$(curl -fsSL https://raw.githubusercontent.com/egarim/MyWslScripts/refs/heads/master/ProductionLinux/Webmin/install_webmin.sh)"
 ```
 
+### all_in_one.sh (Comprehensive Production Suite)
+
+This script is a comprehensive merge installer that combines Keycloak and Seq installations into a single guided setup process, perfect for deploying a complete identity and logging infrastructure.
+
+#### Features
+- **Unified Installation**: Installs both Keycloak (native) and Seq (Docker) in one run
+- **Consolidated Configuration**: Single prompt session for all services
+- **Shared Dependencies**: Installs common components once (Apache, PostgreSQL, Docker)
+- **Complete Security Setup**: UFW firewall, fail2ban, SSL/TLS with Let's Encrypt
+- **Production Logging**: Comprehensive setup log with credentials (for secure deletion)
+- **Diagnostic Tools**: Individual diagnostic helpers for each service
+- **Idempotent Design**: Safe to re-run, handles existing installations gracefully
+
+#### Components Installed
+- **Keycloak Ultimate Production Edition** with PostgreSQL backend
+- **Seq Log Server** with Docker deployment
+- **Apache Reverse Proxy** with SSL termination
+- **Security Stack**: UFW firewall + fail2ban protection
+- **Monitoring**: Health checks and diagnostic scripts
+
+#### Usage
+
+##### Option 1: Download and Run Locally
+
+1. Save the script to a file (e.g., `all_in_one.sh`)
+2. Make it executable: `chmod +x all_in_one.sh`
+3. Run the script: `./all_in_one.sh`
+
+##### Option 2: Run Directly from Remote URL
+
+```
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/egarim/MyWslScripts/refs/heads/master/ProductionLinux/AllInOne/all_in_one.sh)"
+```
+
+#### What You Get
+- **Keycloak**: Full identity and access management server
+- **Seq**: Centralized structured logging server
+- **Unified Access**: Both services behind Apache with optional SSL
+- **Security**: Production-grade firewall and intrusion detection
+- **Diagnostics**: `/root/keycloak-diagnostic.sh` and `/root/seq-diagnostic.sh`
+- **Setup Log**: `/root/setup.log` with all credentials (secure deletion recommended)
+
+#### Post-Installation
+- Access Keycloak: `https://your-auth-domain/admin/`
+- Access Seq: `https://your-logs-domain/`
+- Review setup log: `cat /root/setup.log`
+- Secure cleanup: `shred -u /root/setup.log`
+
 ### testkeycloak_api.ps1 (Keycloak API Test)
 
 A PowerShell script for testing Keycloak installation and API functionality.

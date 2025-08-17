@@ -1,72 +1,151 @@
 # MyWslScripts
 
-## install_keycloak.sh
+## Production-Ready Scripts
 
-This script installs and configures Keycloak with PostgreSQL integration on WSL2.
+The following scripts are production-ready with enhanced security, monitoring, and enterprise features:
 
-### Usage
+### install_keycloakp.sh (Production Keycloak)
 
-#### Option 1: Download and Run Locally
+This script installs and configures Keycloak Ultimate Production Edition with PostgreSQL integration, SSL support, Apache reverse proxy, and advanced security features on WSL2.
 
-1. Save the script to a file (e.g., `install_keycloak.sh`)
-2. Make it executable: `chmod +x install_keycloak.sh`
-3. Run the script: `./install_keycloak.sh`
+#### Features
+- Apache reverse proxy with SSL/TLS support
+- PostgreSQL database integration  
+- Advanced security headers and CSP configuration
+- Fail2ban integration for brute force protection
+- UFW firewall configuration
+- Health monitoring and diagnostics
+- Let's Encrypt SSL certificate automation
 
-#### Option 2: Run Directly from Remote URL
+#### Usage
 
-You can run the script directly from your GitHub repository using `curl` and `bash -c`:
-
-```
-bash -c "$(curl -fsSL https://raw.githubusercontent.com/egarim/MyWslScripts/refs/heads/master/install_keycloak.sh)"
-```
-
-This will download and execute the latest version of `install_keycloak.sh` from your repository.
-
-## install_keycloakp.sh
-
-This script installs and configures Keycloak Ultimate Production Edition with PostgreSQL integration, SSL support, and advanced security features on WSL2.
-
-### Usage
-
-#### Option 1: Download and Run Locally
+##### Option 1: Download and Run Locally
 
 1. Save the script to a file (e.g., `install_keycloakp.sh`)
 2. Make it executable: `chmod +x install_keycloakp.sh`
 3. Run the script: `./install_keycloakp.sh`
 
-#### Option 2: Run Directly from Remote URL
-
-You can run the script directly from your GitHub repository using `curl` and `bash -c`:
+##### Option 2: Run Directly from Remote URL
 
 ```
 bash -c "$(curl -fsSL https://raw.githubusercontent.com/egarim/MyWslScripts/refs/heads/master/ProductionLinux/keycloak/install_keycloakp.sh)"
 ```
 
-This will download and execute the latest version of `install_keycloakp.sh` from your repository.
+### install_seq.sh (Production Seq Log Server)
 
-## install_seq.sh
+This script installs and configures Seq Log Server Ultimate with Docker integration, Apache reverse proxy, and production-grade features on WSL2.
 
-This script installs and configures Seq Log Server with Docker integration on WSL2.
+#### Features
+- Docker-based Seq deployment with persistent storage
+- Apache reverse proxy configuration
+- UFW firewall setup
+- Fail2ban integration
+- SSL/TLS support with Let's Encrypt
+- Health monitoring and diagnostics
+- TCP ingestion configuration
 
-### Usage
+#### Usage
 
-#### Option 1: Download and Run Locally
+##### Option 1: Download and Run Locally
 
 1. Save the script to a file (e.g., `install_seq.sh`)
 2. Make it executable: `chmod +x install_seq.sh`
 3. Run the script: `./install_seq.sh`
 
-#### Option 2: Run Directly from Remote URL
-
-You can run the script directly from your GitHub repository using `curl` and `bash -c`:
+##### Option 2: Run Directly from Remote URL
 
 ```
 bash -c "$(curl -fsSL https://raw.githubusercontent.com/egarim/MyWslScripts/refs/heads/master/ProductionLinux/SeqSerilogServer/install_seq.sh)"
 ```
 
-This will download and execute the latest version of `install_seq.sh` from your repository.
+### fix_seq.sh (Seq Container Fix)
 
-## postgres-remote-access.sh
+A quick utility script to recreate the Seq container with proper configuration.
+
+#### Usage
+
+##### Option 1: Download and Run Locally
+
+1. Save the script to a file (e.g., `fix_seq.sh`)
+2. Make it executable: `chmod +x fix_seq.sh`
+3. Edit the script to set your hostname and password
+4. Run the script: `./fix_seq.sh`
+
+##### Option 2: Run Directly from Remote URL
+
+```
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/egarim/MyWslScripts/refs/heads/master/ProductionLinux/SeqSerilogServer/fix_seq.sh)"
+```
+
+### install_webmin.sh (Production Webmin Server)
+
+This script installs and configures Webmin Ultimate with Apache reverse proxy, SSL support, and production-grade security features on WSL2.
+
+#### Features
+- Apache reverse proxy with SSL/TLS support
+- Let's Encrypt SSL certificate automation
+- UFW firewall configuration
+- Secure backend binding (localhost only)
+- Cookie and redirect handling for proxy setup
+- Self-signed certificate acceptance for backend
+- Health monitoring and diagnostics
+
+#### Usage
+
+##### Option 1: Download and Run Locally
+
+1. Save the script to a file (e.g., `install_webmin.sh`)
+2. Make it executable: `chmod +x install_webmin.sh`
+3. Run the script: `./install_webmin.sh`
+
+##### Option 2: Run Directly from Remote URL
+
+```
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/egarim/MyWslScripts/refs/heads/master/ProductionLinux/Webmin/install_webmin.sh)"
+```
+
+### testkeycloak_api.ps1 (Keycloak API Test)
+
+A PowerShell script for testing Keycloak installation and API functionality.
+
+#### Features
+- Tests OpenID discovery endpoint
+- Validates token endpoint functionality
+- Tests admin REST API access
+- Interactive prompts with defaults
+
+#### Usage
+
+1. Download the script: `testkeycloak_api.ps1`
+2. Run in PowerShell: `.\testkeycloak_api.ps1`
+
+## Development Scripts
+
+The following scripts are for development and testing purposes:
+
+### install_keycloak.sh
+
+### install_keycloak.sh (Development)
+
+This script installs and configures Keycloak with PostgreSQL integration on WSL2 for development purposes.
+
+#### Usage
+
+##### Option 1: Download and Run Locally
+
+1. Save the script to a file (e.g., `install_keycloak.sh`)
+2. Make it executable: `chmod +x install_keycloak.sh`
+3. Run the script: `./install_keycloak.sh`
+
+##### Option 2: Run Directly from Remote URL
+
+```
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/egarim/MyWslScripts/refs/heads/master/install_keycloak.sh)"
+```
+
+## General Purpose Scripts
+
+### postgres-remote-access.sh
 
 This script will configure your PostgreSQL server to accept remote connections. Here's how to use it:
 

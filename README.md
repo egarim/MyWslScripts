@@ -22,6 +22,28 @@ bash -c "$(curl -fsSL https://raw.githubusercontent.com/egarim/MyWslScripts/refs
 
 This will download and execute the latest version of `install_keycloak.sh` from your repository.
 
+## install_keycloakp.sh
+
+This script installs and configures Keycloak Ultimate Production Edition with PostgreSQL integration, SSL support, and advanced security features on WSL2.
+
+### Usage
+
+#### Option 1: Download and Run Locally
+
+1. Save the script to a file (e.g., `install_keycloakp.sh`)
+2. Make it executable: `chmod +x install_keycloakp.sh`
+3. Run the script: `./install_keycloakp.sh`
+
+#### Option 2: Run Directly from Remote URL
+
+You can run the script directly from your GitHub repository using `curl` and `bash -c`:
+
+```
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/egarim/MyWslScripts/refs/heads/master/ProductionLinux/keycloak/install_keycloakp.sh)"
+```
+
+This will download and execute the latest version of `install_keycloakp.sh` from your repository.
+
 ## install_seq.sh
 
 This script installs and configures Seq Log Server with Docker integration on WSL2.

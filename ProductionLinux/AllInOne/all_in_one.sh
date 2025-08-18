@@ -1,544 +1,353 @@
-#!/bin/bash
-# ============================================================================
-# Merge Installer: Keycloak (native) + Seq (docker) on Ubuntu 22.04+
-# - Consolidates prompts from both original scripts into a single guided run
-# - Installs shared dependencies once
-# - Writes a full /root/setup.log (includes credentials for later deletion)
-# - Drops per-app diagnostic helpers
-# - Idempotent-ish: safe to re-run (will recreate containers/vhosts as needed)
-# Author: merged-from-user-supplied scripts
-# Date: 2025-08-17
-# ============================================================================
+#!/usr/bin/env bash
 set -euo pipefail
 
-LOG_FILE="/root/setup.log"
-touch "$LOG_FILE"
-chmod 600 "$LOG_FILE"
+# ============================================
+# Combined Installer: Webmin + Seq + Keycloak
+# Compatible: Ubuntu 22.04/24.04
+# Logs EVERYTHING (including passwords) to setup.log (as requested).
+# ============================================
 
-RED='\\033[0;31m'; GREEN='\\033[0;32m'; YELLOW='\\033[1;33m'; BLUE='\\033[0;34m'; NC='\\033[0m'
-log(){ echo -e "${BLUE}[$(date +'%Y-%m-%d %H:%M:%S')]${NC} $1"; echo "[$(date +'%F %T)] $1" >> "$LOG_FILE"; }
-ok(){ echo -e "${GREEN}[$(date +'%Y-%m-%d %H:%M:%S')] OK:${NC} $1"; echo "OK: $1" >> "$LOG_FILE"; }
-warn(){ echo -e "${YELLOW}[$(date +'%Y-%m-%d %H:%M:%S')] WARN:${NC} $1"; echo "WARN: $1" >> "$LOG_FILE"; }
-err(){ echo -e "${RED}[$(date +'%Y-%m-%d %H:%M:%S')] ERROR:${NC} $1"; echo "ERROR: $1" >> "$LOG_FILE"; }
+LOG_FILE="$(pwd)/setup.log"
+: > "$LOG_FILE"
+exec > >(tee -a "$LOG_FILE") 2>&1
 
-require_root(){ [[ $EUID -eq 0 ]] || { err "Run as root."; exit 1; }; }
+# ---------- styling ----------
+RED="\033[0;31m"; GRN="\033[0;32m"; YEL="\033[1;33m"; BLU="\033[0;34m"; NC="\033[0m"
+say() { echo -e "${BLU}==>${NC} $*"; }
+ok()  { echo -e "${GRN}[OK]${NC} $*"; }
+warn(){ echo -e "${YEL}[WARN]${NC} $*"; }
+err() { echo -e "${RED}[ERR]${NC} $*"; }
 
-# ---------------------------- Defaults (Keycloak) ----------------------------
-KC_VERSION="26.3.1"
-KC_USER="keycloak"
-KC_GROUP="keycloak"
-KC_HOME="/opt/keycloak"
-KC_LOG_DIR="/var/log/keycloak"
-KC_DATA_DIR="/var/lib/keycloak"
-KC_DEFAULT_HOSTNAME="auth.example.com"
-KC_DEFAULT_DB_NAME="keycloak_prod"
-KC_DEFAULT_DB_USER="keycloak_user"
-KC_DEFAULT_DB_PASSWORD="ChangeMeDB!123"
-KC_DEFAULT_ADMIN_USER="keycloakadmin"
-KC_DEFAULT_ADMIN_PASSWORD="ChangeMeKC!123"
-KC_DEFAULT_HTTP_PORT="8080"
-KC_DEFAULT_ALLOWED_FRAME_ANCESTORS="'self' https://your-shell.example.com"
+# ---------- root check ----------
+if [[ $EUID -ne 0 ]]; then
+  err "Please run as root (e.g., sudo $0)"
+  exit 1
+fi
 
-# ------------------------------ Defaults (Seq) -------------------------------
-SEQ_DEFAULT_HOSTNAME="logs.example.com"
-SEQ_DEFAULT_DATA_DIR="/var/lib/seq"
-SEQ_DEFAULT_BACKEND_PORT="5342"     # host -> container:80
-SEQ_DEFAULT_TCP_INGEST_PORT="5341"  # host -> container:5341
-SEQ_DEFAULT_ACCEPT_EULA="Y"
-SEQ_DEFAULT_OPEN_TCP_INGEST="N"
-SEQ_DEFAULT_TCP_INGEST_CIDR="10.0.0.0/24"
-SEQ_DEFAULT_IMAGE="datalust/seq:latest"
-SEQ_DEFAULT_ADMIN_PASSWORD="ChangeMe!123"
-SEQ_DEFAULT_ENABLE_SSL="N"
-
-# ------------------------------ User responses ------------------------------
-INSTALL_KEYCLOAK="Y"
-INSTALL_SEQ="Y"
-
-KC_HOSTNAME=""
-KC_DB_NAME=""
-KC_DB_USER=""
-KC_DB_PASSWORD=""
-KC_ADMIN_USER=""
-KC_ADMIN_PASSWORD=""
-KC_HTTP_PORT=""
-KC_ALLOWED_FRAME_ANCESTORS=""
-
-SEQ_HOSTNAME=""
-SEQ_DATA_DIR=""
-SEQ_BACKEND_PORT=""
-SEQ_TCP_INGEST_PORT=""
-SEQ_ACCEPT_EULA=""
-SEQ_OPEN_TCP_INGEST=""
-SEQ_TCP_INGEST_CIDR=""
-SEQ_IMAGE=""
-SEQ_ADMIN_PASSWORD=""
-SEQ_ENABLE_SSL=""
-
-PROMPT_ALL(){
-  echo; log "=== Merge Installer: Keycloak + Seq ==="; echo
-  read -p "Install Keycloak? (Y/N) [Y]: " INSTALL_KEYCLOAK; INSTALL_KEYCLOAK=${INSTALL_KEYCLOAK:-Y}
-  read -p "Install Seq (Docker)? (Y/N) [Y]: " INSTALL_SEQ; INSTALL_SEQ=${INSTALL_SEQ:-Y}
-
-  if [[ "$INSTALL_KEYCLOAK" =~ ^[Yy]$ ]]; then
-    echo; log "--- Keycloak configuration ---"
-    read -p "Keycloak hostname [$KC_DEFAULT_HOSTNAME]: " KC_HOSTNAME; KC_HOSTNAME=${KC_HOSTNAME:-$KC_DEFAULT_HOSTNAME}
-    read -p "Keycloak DB name [$KC_DEFAULT_DB_NAME]: " KC_DB_NAME; KC_DB_NAME=${KC_DB_NAME:-$KC_DEFAULT_DB_NAME}
-    read -p "Keycloak DB user [$KC_DEFAULT_DB_USER]: " KC_DB_USER; KC_DB_USER=${KC_DB_USER:-$KC_DEFAULT_DB_USER}
-    read -p "Keycloak DB password [$KC_DEFAULT_DB_PASSWORD]: " KC_DB_PASSWORD; KC_DB_PASSWORD=${KC_DB_PASSWORD:-$KC_DEFAULT_DB_PASSWORD}
-    read -p "Keycloak admin user [$KC_DEFAULT_ADMIN_USER]: " KC_ADMIN_USER; KC_ADMIN_USER=${KC_ADMIN_USER:-$KC_DEFAULT_ADMIN_USER}
-    read -p "Keycloak admin password [$KC_DEFAULT_ADMIN_PASSWORD]: " KC_ADMIN_PASSWORD; KC_ADMIN_PASSWORD=${KC_ADMIN_PASSWORD:-$KC_DEFAULT_ADMIN_PASSWORD}
-    read -p "Keycloak backend HTTP port [$KC_DEFAULT_HTTP_PORT]: " KC_HTTP_PORT; KC_HTTP_PORT=${KC_HTTP_PORT:-$KC_DEFAULT_HTTP_PORT}
-    read -p "Allowed frame-ancestors (space-separated) [$KC_DEFAULT_ALLOWED_FRAME_ANCESTORS]: " KC_ALLOWED_FRAME_ANCESTORS; KC_ALLOWED_FRAME_ANCESTORS=${KC_ALLOWED_FRAME_ANCESTORS:-$KC_DEFAULT_ALLOWED_FRAME_ANCESTORS}
-  fi
-
-  if [[ "$INSTALL_SEQ" =~ ^[Yy]$ ]]; then
-    echo; log "--- Seq configuration ---"
-    read -p "Seq hostname [$SEQ_DEFAULT_HOSTNAME]: " SEQ_HOSTNAME; SEQ_HOSTNAME=${SEQ_HOSTNAME:-$SEQ_DEFAULT_HOSTNAME}
-    read -p "Seq data dir [$SEQ_DEFAULT_DATA_DIR]: " SEQ_DATA_DIR; SEQ_DATA_DIR=${SEQ_DATA_DIR:-$SEQ_DEFAULT_DATA_DIR}
-    read -p "Seq backend HTTP port (host->80) [$SEQ_DEFAULT_BACKEND_PORT]: " SEQ_BACKEND_PORT; SEQ_BACKEND_PORT=${SEQ_BACKEND_PORT:-$SEQ_DEFAULT_BACKEND_PORT}
-    read -p "Seq TCP ingest port (host->5341) [$SEQ_DEFAULT_TCP_INGEST_PORT]: " SEQ_TCP_INGEST_PORT; SEQ_TCP_INGEST_PORT=${SEQ_TCP_INGEST_PORT:-$SEQ_DEFAULT_TCP_INGEST_PORT}
-    read -p "Open TCP ingestion to a CIDR? (Y/N) [$SEQ_DEFAULT_OPEN_TCP_INGEST]: " SEQ_OPEN_TCP_INGEST; SEQ_OPEN_TCP_INGEST=${SEQ_OPEN_TCP_INGEST:-$SEQ_DEFAULT_OPEN_TCP_INGEST}
-    if [[ "$SEQ_OPEN_TCP_INGEST" =~ ^[Yy]$ ]]; then
-      read -p "CIDR allowed for TCP ingestion [$SEQ_DEFAULT_TCP_INGEST_CIDR]: " SEQ_TCP_INGEST_CIDR; SEQ_TCP_INGEST_CIDR=${SEQ_TCP_INGEST_CIDR:-$SEQ_DEFAULT_TCP_INGEST_CIDR}
-    else
-      SEQ_TCP_INGEST_CIDR=""
-    fi
-    read -p "Accept Seq EULA? (Y/N) [$SEQ_DEFAULT_ACCEPT_EULA]: " SEQ_ACCEPT_EULA; SEQ_ACCEPT_EULA=${SEQ_ACCEPT_EULA:-$SEQ_DEFAULT_ACCEPT_EULA}
-    read -p "Seq Docker image [$SEQ_DEFAULT_IMAGE]: " SEQ_IMAGE; SEQ_IMAGE=${SEQ_IMAGE:-$SEQ_DEFAULT_IMAGE}
-    read -p "Initial Seq admin password [$SEQ_DEFAULT_ADMIN_PASSWORD]: " SEQ_ADMIN_PASSWORD; SEQ_ADMIN_PASSWORD=${SEQ_ADMIN_PASSWORD:-$SEQ_DEFAULT_ADMIN_PASSWORD}
-    read -p "Run Let's Encrypt for Seq now? (Y/N) [$SEQ_DEFAULT_ENABLE_SSL]: " SEQ_ENABLE_SSL; SEQ_ENABLE_SSL=${SEQ_ENABLE_SSL:-$SEQ_DEFAULT_ENABLE_SSL}
-  fi
-
-  echo; log "Summary:"
-  echo "  Keycloak: ${INSTALL_KEYCLOAK} ${INSTALL_KEYCLOAK:+on}"
-  if [[ "$INSTALL_KEYCLOAK" =~ ^[Yy]$ ]]; then
-    echo "    Hostname=$KC_HOSTNAME DB=$KC_DB_NAME/$KC_DB_USER Admin=$KC_ADMIN_USER Port=$KC_HTTP_PORT"
-    echo "    frame-ancestors=$KC_ALLOWED_FRAME_ANCESTORS"
-  fi
-  echo "  Seq: ${INSTALL_SEQ} ${INSTALL_SEQ:+on}"
-  if [[ "$INSTALL_SEQ" =~ ^[Yy]$ ]]; then
-    echo "    Hostname=$SEQ_HOSTNAME Data=$SEQ_DATA_DIR Ports: ui=$SEQ_BACKEND_PORT tcp=$SEQ_TCP_INGEST_PORT open_tcp=$SEQ_OPEN_TCP_INGEST cidr=${SEQ_TCP_INGEST_CIDR:-N/A}"
-    echo "    image=$SEQ_IMAGE ssl_now=$SEQ_ENABLE_SSL"
-  fi
-  echo
-  read -p "Proceed? (y/N): " confirm
-  [[ $confirm =~ ^[Yy]$ ]] || { warn "Cancelled by user."; exit 0; }
+# ---------- helpers ----------
+confirm () {
+  local prompt="${1:-Proceed?} [Y/n]: "
+  read -r -p "$prompt" ans || true
+  [[ -z "${ans:-}" || "${ans,,}" == "y" || "${ans,,}" == "yes" ]]
+}
+gen_pass () {
+  tr -dc 'A-Za-z0-9!@#%^&*()-_=+' </dev/urandom | head -c 20
 }
 
-APT_PREP(){
-  log "Updating packages & installing shared deps (apache2, certbot, ufw, fail2ban, curl, wget, jq, net-tools)..."
+require_cmd () {
+  if ! command -v "$1" >/dev/null 2>&1; then
+    apt-get update -y
+    apt-get install -y "$2"
+  fi
+}
+
+# ---------- gather inputs ----------
+say "Let's collect a few settings. Press Enter to accept defaults."
+
+# General
+read -r -p "Public hostname or domain (for services) [$(hostname -f)]: " PUBLIC_HOST
+PUBLIC_HOST="${PUBLIC_HOST:-$(hostname -f)}"
+
+# Webmin
+read -r -p "Install Webmin? [Y/n]: " DO_WEBMIN
+DO_WEBMIN="${DO_WEBMIN:-Y}"
+read -r -p "Webmin port [10000]: " WEBMIN_PORT
+WEBMIN_PORT="${WEBMIN_PORT:-10000}"
+
+# Seq
+read -r -p "Install Seq (Datalust)? [Y/n]: " DO_SEQ
+DO_SEQ="${DO_SEQ:-Y}"
+read -r -p "Seq HTTP port [5341]: " SEQ_HTTP_PORT
+SEQ_HTTP_PORT="${SEQ_HTTP_PORT:-5341}"
+read -r -p "Seq ingestion (HTTP) port [5341]: " SEQ_INGEST_PORT
+SEQ_INGEST_PORT="${SEQ_INGEST_PORT:-5341}"
+read -r -p "Provide a Seq admin password (leave blank to auto-generate): " SEQ_ADMIN_PASS
+SEQ_ADMIN_PASS="${SEQ_ADMIN_PASS:-$(gen_pass)}"
+read -r -p "Provide a Seq API key/ingestion key (leave blank to auto-generate): " SEQ_INGEST_KEY
+SEQ_INGEST_KEY="${SEQ_INGEST_KEY:-$(gen_pass)}"
+read -r -p "Provide a Seq license key (optional, press Enter to skip): " SEQ_LICENSE
+SEQ_LICENSE="${SEQ_LICENSE:-}"
+
+# Keycloak
+read -r -p "Install Keycloak? [Y/n]: " DO_KC
+DO_KC="${DO_KC:-Y}"
+read -r -p "Keycloak HTTP port [8080]: " KC_HTTP_PORT
+KC_HTTP_PORT="${KC_HTTP_PORT:-8080}"
+read -r -p "Keycloak admin username [admin]: " KC_ADMIN
+KC_ADMIN="${KC_ADMIN:-admin}"
+read -r -p "Keycloak admin password (leave blank to auto-generate): " KC_ADMIN_PASS
+KC_ADMIN_PASS="${KC_ADMIN_PASS:-$(gen_pass)}"
+
+read -r -p "Use PostgreSQL for Keycloak persistence? [Y/n]: " USE_PG
+USE_PG="${USE_PG:-Y}"
+if [[ "${USE_PG,,}" == "y" || -z "$USE_PG" ]]; then
+  read -r -p "PostgreSQL version [16]: " PG_VER
+  PG_VER="${PG_VER:-16}"
+  read -r -p "PostgreSQL database name for Keycloak [keycloak_prod]: " KC_DB
+  KC_DB="${KC_DB:-keycloak_prod}"
+  read -r -p "PostgreSQL username for Keycloak [keycloak]: " KC_DB_USER
+  KC_DB_USER="${KC_DB_USER:-keycloak}"
+  read -r -p "PostgreSQL password for Keycloak (leave blank to auto-generate): " KC_DB_PASS
+  KC_DB_PASS="${KC_DB_PASS:-$(gen_pass)}"
+  read -r -p "PostgreSQL host [localhost]: " PG_HOST
+  PG_HOST="${PG_HOST:-localhost}"
+  read -r -p "PostgreSQL port [5432]: " PG_PORT
+  PG_PORT="${PG_PORT:-5432}"
+else
+  PG_VER=""
+  KC_DB=""
+  KC_DB_USER=""
+  KC_DB_PASS=""
+  PG_HOST=""
+  PG_PORT=""
+fi
+
+say "Thanks. Starting install in 5 seconds. Ctrl+C to abort."
+sleep 5
+
+# ---------- prerequisites ----------
+say "Installing prerequisites..."
+apt-get update -y
+apt-get install -y curl wget apt-transport-https gnupg ca-certificates lsb-release ufw jq unzip
+
+# ---------- WEBMIN ----------
+install_webmin () {
+  say "Installing Webmin..."
+  # Add repo & key
+  if ! apt-cache policy | grep -q 'download.webmin.com'; then
+    wget -qO- http://www.webmin.com/jcameron-key.asc | gpg --dearmor -o /usr/share/keyrings/webmin.gpg
+    echo "deb [signed-by=/usr/share/keyrings/webmin.gpg] http://download.webmin.com/download/repository sarge contrib" > /etc/apt/sources.list.d/webmin.list
+  fi
   apt-get update -y
-  apt-get upgrade -y
-  apt-get install -y apache2 certbot python3-certbot-apache ufw fail2ban curl wget jq net-tools gnupg lsb-release ca-certificates unzip
-  a2enmod proxy proxy_http headers rewrite ssl proxy_html proxy_connect >/dev/null 2>&1 || true
-  systemctl enable --now apache2
-  ok "Base system ready"
-}
+  apt-get install -y webmin
 
-# -------------------------------- Keycloak ----------------------------------
-KC_INSTALL(){
-  log "[KC] Installing OpenJDK, PostgreSQL, creating user/dirs..."
-  apt-get install -y openjdk-21-jdk postgresql postgresql-contrib
-  groupadd -r "$KC_GROUP" 2>/dev/null || true
-  useradd -r -g "$KC_GROUP" -d "$KC_HOME" -s /usr/sbin/nologin "$KC_USER" 2>/dev/null || true
-  mkdir -p "$KC_HOME" "$KC_LOG_DIR" "$KC_DATA_DIR" "$KC_HOME/conf" "$KC_HOME/data"
-  chown -R "$KC_USER:$KC_GROUP" "$KC_HOME" "$KC_LOG_DIR" "$KC_DATA_DIR"
-  chmod 750 "$KC_HOME" "$KC_DATA_DIR"; chmod 755 "$KC_LOG_DIR"
-  systemctl enable --now postgresql
-
-  # Postgres tune+DB
-  local pg_version; pg_version=$(sudo -u postgres psql -t -c "SELECT split_part(version(), ' ', 2);" | awk '{print $1}' | head -1 || true)
-  local pg_major; pg_major=$(echo "$pg_version" | cut -d. -f1)
-  local pg_conf="/etc/postgresql/${pg_major}/main/postgresql.conf"
-  [[ -f "$pg_conf" ]] && cp "$pg_conf" "$pg_conf.bak.$(date +%s)" || true
-  if [[ -f "$pg_conf" ]]; then
-    cat >> "$pg_conf" <<EOF
-
-# Keycloak production tuning (merge installer)
-max_connections = 200
-shared_buffers = 256MB
-effective_cache_size = 1GB
-work_mem = 4MB
-maintenance_work_mem = 64MB
-checkpoint_completion_target = 0.9
-wal_buffers = 16MB
-EOF
+  # Adjust port if needed
+  if [[ -n "$WEBMIN_PORT" ]]; then
+    sed -i "s/^port=.*/port=$WEBMIN_PORT/" /etc/webmin/miniserv.conf
+    systemctl restart webmin || true
   fi
 
-  sudo -u postgres psql <<EOF
-DROP DATABASE IF EXISTS $KC_DB_NAME;
-DROP USER IF EXISTS $KC_DB_USER;
-CREATE DATABASE $KC_DB_NAME WITH ENCODING 'UTF8' TEMPLATE=template0;
-CREATE USER $KC_DB_USER WITH PASSWORD '$KC_DB_PASSWORD';
-GRANT ALL PRIVILEGES ON DATABASE $KC_DB_NAME TO $KC_DB_USER;
-ALTER DATABASE $KC_DB_NAME OWNER TO $KC_DB_USER;
-\\c $KC_DB_NAME
-GRANT ALL ON SCHEMA public TO $KC_DB_USER;
-GRANT CREATE, USAGE ON SCHEMA public TO $KC_DB_USER;
-EOF
-  systemctl restart postgresql
+  # Firewall allow
+  if command -v ufw >/dev/null 2>&1; then
+    ufw allow "$WEBMIN_PORT"/tcp || true
+  fi
 
-  # Download Keycloak
-  log "[KC] Downloading Keycloak ${KC_VERSION}..."
-  cd /tmp
-  wget -q -O keycloak.tar.gz "https://github.com/keycloak/keycloak/releases/download/${KC_VERSION}/keycloak-${KC_VERSION}.tar.gz"
-  tar -xzf keycloak.tar.gz
-  cp -r "keycloak-${KC_VERSION}/"* "$KC_HOME/"
-  chown -R "$KC_USER:$KC_GROUP" "$KC_HOME"
-  chmod +x "$KC_HOME/bin/"*.sh
-  rm -rf keycloak.tar.gz "keycloak-${KC_VERSION}"
-  ok "[KC] Files installed"
-
-  # keycloak.conf
-  cat > "$KC_HOME/conf/keycloak.conf" <<EOF
-db=postgres
-db-username=$KC_DB_USER
-db-password=$KC_DB_PASSWORD
-db-url=jdbc:postgresql://localhost:5432/$KC_DB_NAME
-hostname=$KC_HOSTNAME
-hostname-strict=false
-hostname-strict-backchannel=false
-proxy-headers=xforwarded
-hostname-strict-https=true
-http-enabled=true
-http-port=$KC_HTTP_PORT
-health-enabled=true
-metrics-enabled=true
-log=console,file
-log-level=INFO
-log-file=$KC_LOG_DIR/keycloak.log
-cache=local
-transaction-xa-enabled=false
-features=token-exchange,admin-fine-grained-authz
-EOF
-  chown "$KC_USER:$KC_GROUP" "$KC_HOME/conf/keycloak.conf"
-  chmod 640 "$KC_HOME/conf/keycloak.conf"
-
-  # Optimize build
-  sudo -u "$KC_USER" "$KC_HOME/bin/kc.sh" build \
-    --db=postgres \
-    --health-enabled=true \
-    --metrics-enabled=true \
-    --features=token-exchange,admin-fine-grained-authz
-
-  # systemd
-  cat > /etc/systemd/system/keycloak.service <<EOF
-[Unit]
-Description=Keycloak Identity and Access Management
-After=network.target postgresql.service
-Wants=postgresql.service
-
-[Service]
-Type=exec
-User=$KC_USER
-Group=$KC_GROUP
-Environment=JAVA_OPTS="-Xms512m -Xmx1024m -Djava.net.preferIPv4Stack=true"
-Environment=KC_BOOTSTRAP_ADMIN_USERNAME=$KC_ADMIN_USER
-Environment=KC_BOOTSTRAP_ADMIN_PASSWORD=$KC_ADMIN_PASSWORD
-ExecStart=$KC_HOME/bin/kc.sh start --optimized
-StandardOutput=journal
-StandardError=journal
-Restart=on-failure
-RestartSec=10
-LimitNOFILE=102642
-PrivateTmp=true
-ProtectHome=true
-NoNewPrivileges=true
-
-[Install]
-WantedBy=multi-user.target
-EOF
-  systemctl daemon-reload
-  systemctl enable keycloak
-
-  # Apache vhost + headers for framing
-  a2dissite 000-default.conf >/dev/null 2>&1 || true
-  cat > /etc/apache2/sites-available/keycloak-80.conf <<EOF
-<VirtualHost *:80>
-    ServerName $KC_HOSTNAME
-    ProxyPreserveHost On
-    ProxyRequests Off
-    ProxyPass /.well-known/acme-challenge/ !
-    DocumentRoot /var/www/html
-
-    Header always set X-Content-Type-Options nosniff
-    Header always set X-XSS-Protection "1; mode=block"
-    Header always set Referrer-Policy "strict-origin-when-cross-origin"
-
-    RequestHeader set X-Forwarded-Proto expr=%{REQUEST_SCHEME}
-    RequestHeader set X-Forwarded-Port  expr=%{SERVER_PORT}
-    RequestHeader set X-Forwarded-Host  "%{HTTP_HOST}s"
-
-    ProxyPass        / http://127.0.0.1:$KC_HTTP_PORT/
-    ProxyPassReverse / http://127.0.0.1:$KC_HTTP_PORT/
-
-    ErrorLog \${APACHE_LOG_DIR}/keycloak_error.log
-    CustomLog \${APACHE_LOG_DIR}/keycloak_access.log combined
-</VirtualHost>
-EOF
-  a2ensite keycloak-80.conf >/dev/null 2>&1 || true
-
-  cat > /etc/apache2/conf-available/keycloak-headers.conf <<EOF
-<IfModule mod_headers.c>
-    Header always unset X-Frame-Options
-    Header always set Content-Security-Policy "frame-ancestors ${KC_ALLOWED_FRAME_ANCESTORS}"
-</IfModule>
-EOF
-  a2enconf keycloak-headers.conf >/dev/null 2>&1 || true
-
-  apache2ctl configtest
-  systemctl restart apache2
-
-  # Security: UFW & fail2ban (generic)
-  ufw --force reset
-  ufw default deny incoming
-  ufw default allow outgoing
-  ufw allow 22/tcp comment 'SSH'
-  ufw allow 80/tcp comment 'HTTP'
-  ufw allow 443/tcp comment 'HTTPS'
-  ufw allow from 127.0.0.1 to any port 5432 comment 'PostgreSQL local'
-  ufw --force enable
-
-  cat > /etc/fail2ban/filter.d/keycloak.conf <<'EOF'
-[Definition]
-failregex = ^.*ERROR.*Login failure.*from IP.*<HOST>.*$
-            ^.*WARN.*Failed login attempt.*from.*<HOST>.*$
-            ^.*ERROR.*Invalid user credentials.*from.*<HOST>.*$
-ignoreregex =
-EOF
-
-  cat > /etc/fail2ban/jail.d/keycloak.conf <<EOF
-[keycloak]
-enabled = true
-port = 80,443
-protocol = tcp
-filter = keycloak
-logpath = $KC_LOG_DIR/keycloak.log
-maxretry = 5
-bantime = 3600
-findtime = 600
-EOF
-  systemctl restart fail2ban || true
-  systemctl enable fail2ban || true
-
-  systemctl start keycloak
-
-  # Diagnostic helper
-  cat > /root/keycloak-diagnostic.sh <<'EOF'
-#!/bin/bash
-echo "=== KEYCLOAK DIAGNOSTIC REPORT ==="
-date; echo
-systemctl status keycloak --no-pager -l | head -20
-echo; systemctl status apache2 --no-pager -l | head -12
-echo; systemctl status postgresql --no-pager -l | head -12
-echo; netstat -tuln | grep -E "(8080|80|443|9000)" || true
-echo; host=$(grep '^hostname=' /opt/keycloak/conf/keycloak.conf 2>/dev/null | cut -d= -f2); [[ -z "$host" ]] && host="localhost"
-for u in "http://$host/" "http://$host/admin/" "http://localhost:8080/admin/master/console/"; do
-  code=$(timeout 7 curl -k -s -w "%{http_code}" "$u" -o /dev/null || echo "timeout"); echo "$u -> $code"
-done
-echo; curl -s "http://127.0.0.1:9000/q/health" || true
-EOF
-  chmod +x /root/keycloak-diagnostic.sh
-
-  ok "[KC] Installed. Admin: ${KC_ADMIN_USER}/${KC_ADMIN_PASSWORD}"
+  ok "Webmin installed on port $WEBMIN_PORT"
+  say "Access: https://$PUBLIC_HOST:$WEBMIN_PORT/"
 }
 
-# ---------------------------------- Seq -------------------------------------
-ENSURE_DOCKER(){
+# ---------- Docker engine ----------
+ensure_docker () {
   if ! command -v docker >/dev/null 2>&1; then
-    log "[SEQ] Installing Docker CE..."
+    say "Installing Docker..."
+    apt-get remove -y docker docker-engine docker.io containerd runc || true
+    apt-get install -y ca-certificates curl
     install -m 0755 -d /etc/apt/keyrings
     curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
     chmod a+r /etc/apt/keyrings/docker.gpg
-    . /etc/os-release
-    echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $VERSION_CODENAME stable" > /etc/apt/sources.list.d/docker.list
+    echo \
+      "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
+      $(. /etc/os-release && echo "$VERSION_CODENAME") stable" \
+      | tee /etc/apt/sources.list.d/docker.list >/dev/null
     apt-get update -y
     apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
     systemctl enable --now docker
+    ok "Docker installed."
   fi
-  ok "[SEQ] Docker ready"
 }
 
-SEQ_INSTALL(){
-  [[ "$SEQ_ACCEPT_EULA" =~ ^[Yy]$ ]] || { err "[SEQ] EULA must be accepted."; exit 1; }
-  ENSURE_DOCKER
+# ---------- SEQ (Docker) ----------
+install_seq () {
+  ensure_docker
+  say "Installing Seq (Docker)..."
 
-  mkdir -p "$SEQ_DATA_DIR"; chmod 755 "$SEQ_DATA_DIR"
-  # vhost & headers
-  cat > /etc/apache2/conf-available/seq-headers.conf <<'EOF'
-<IfModule mod_headers.c>
-    Header always set X-Content-Type-Options nosniff
-    Header always set X-XSS-Protection "1; mode=block"
-    Header always set Referrer-Policy "strict-origin-when-cross-origin"
-    # To allow embedding Seq in an iframe from specific origins, you can uncomment and edit:
-    # Header always unset X-Frame-Options
-    # Header always set Content-Security-Policy "frame-ancestors 'self' https://your-shell.example.com"
-</IfModule>
-EOF
-  a2enconf seq-headers.conf >/dev/null 2>&1 || true
+  mkdir -p /opt/seq
+  docker pull datalust/seq:latest
 
-  cat > /etc/apache2/sites-available/seq.conf <<EOF
-<VirtualHost *:80>
-    ServerName ${SEQ_HOSTNAME}
-    ProxyPreserveHost On
-    ProxyRequests Off
-    ProxyTimeout 300
-    ProxyPass /.well-known/acme-challenge/ !
-    DocumentRoot /var/www/html
-    RequestHeader set X-Forwarded-Proto expr=%{REQUEST_SCHEME}
-    RequestHeader set X-Forwarded-Port  expr=%{SERVER_PORT}
-    RequestHeader set X-Forwarded-Host  "%{HTTP_HOST}s"
-    ProxyPass        / http://127.0.0.1:${SEQ_BACKEND_PORT}/ keepalive=On
-    ProxyPassReverse / http://127.0.0.1:${SEQ_BACKEND_PORT}/
-    ErrorLog \${APACHE_LOG_DIR}/seq_error.log
-    CustomLog \${APACHE_LOG_DIR}/seq_access.log combined
-</VirtualHost>
-EOF
-  a2ensite seq.conf >/dev/null 2>&1 || true
-  apache2ctl configtest
-  systemctl reload apache2
-
-  # Run (recreate) container
+  # Create / update container
   if docker ps -a --format '{{.Names}}' | grep -q '^seq$'; then
+    warn "Seq container already exists. Recreating..."
     docker rm -f seq || true
   fi
-  docker pull "$SEQ_IMAGE" >/dev/null || true
-  docker run -d --name seq \
-    -e ACCEPT_EULA=Y \
-    -e SEQ_FIRSTRUN_ADMINPASSWORD="${SEQ_ADMIN_PASSWORD}" \
-    -e SEQ_BASEURI="https://${SEQ_HOSTNAME}/" \
-    -p "127.0.0.1:${SEQ_BACKEND_PORT}:80" \
-    -p "${SEQ_TCP_INGEST_PORT}:5341" \
-    -v "${SEQ_DATA_DIR}:/data" \
+
+  # Environment configuration
+  # - SEQ_FIRSTRUN_ADMINPASSWORD sets admin account.
+  # - SEQ_ACCEPT_EULA must be set to Y.
+  # - SEQ_LICENSE accepted if provided.
+  ENV_FLAGS=(-e SEQ_FIRSTRUN_ADMINPASSWORD="$SEQ_ADMIN_PASS" -e SEQ_ACCEPT_EULA=Y)
+  if [[ -n "$SEQ_LICENSE" ]]; then
+    ENV_FLAGS+=(-e SEQ_LICENSE="$SEQ_LICENSE")
+  fi
+
+  docker run -d \
+    --name seq \
     --restart unless-stopped \
-    "$SEQ_IMAGE"
+    -p "${SEQ_HTTP_PORT}:80" \
+    -p "${SEQ_INGEST_PORT}:5341" \
+    -v /opt/seq:/data \
+    "${ENV_FLAGS[@]}" \
+    datalust/seq:latest
 
-  # UFW rules (append, do not reset if already enabled by KC step)
-  ufw allow 80/tcp  comment 'HTTP' || true
-  ufw allow 443/tcp comment 'HTTPS' || true
-  if [[ "$SEQ_OPEN_TCP_INGEST" =~ ^[Yy]$ ]]; then
-    ufw allow from "$SEQ_TCP_INGEST_CIDR" to any port "$SEQ_TCP_INGEST_PORT" proto tcp comment 'Seq TCP ingest' || true
-  fi
-  ufw --force enable || true
+  # Create an API key for ingestion
+  say "Creating Seq ingestion API key..."
+  sleep 5
+  # Try to create a default API key (best-effort)
+  docker exec seq seqcli apikey create -t "IngestionKey" -s "http://localhost" -k "$SEQ_INGEST_KEY" >/dev/null 2>&1 || true
 
-  # Wait for backend
-  local max=60; local n=1
-  until curl -fsS "http://127.0.0.1:${SEQ_BACKEND_PORT}/" >/dev/null 2>&1; do
-    (( n >= max )) && { warn "[SEQ] Backend not answering yet, continuing..."; break; }
-    sleep 2; n=$((n+1))
-  done
+  # Firewall
+  ufw allow "${SEQ_HTTP_PORT}"/tcp || true
+  ufw allow "${SEQ_INGEST_PORT}"/tcp || true
 
-  # SSL now?
-  if [[ "$SEQ_ENABLE_SSL" =~ ^[Yy]$ ]]; then
-    if certbot --apache -d "$SEQ_HOSTNAME" --non-interactive --agree-tos --email admin@"$SEQ_HOSTNAME" --redirect; then
-      ok "[SEQ] SSL certificate installed; redirect enabled"
-      systemctl reload apache2
-    else
-      warn "[SEQ] Certbot failed; try later: certbot --apache -d $SEQ_HOSTNAME"
-    fi
-  fi
-
-  # Diagnostic helper
-  cat > /root/seq-diagnostic.sh <<EOF
-#!/bin/bash
-echo "=== SEQ Diagnostic Report ==="
-date
-echo
-echo "[Services]"
-systemctl status apache2 --no-pager -l | head -12 || true
-echo
-echo "[Docker]"
-docker ps --format "table {{'{'}}.Names{{'}'}}\t{{'{'}}.Status{{'}'}}\t{{'{'}}.Ports{{'}'}}" || true
-echo
-echo "[Ports]"
-ss -tulpen | grep -E ":(${SEQ_BACKEND_PORT}|80|443|${SEQ_TCP_INGEST_PORT})\\b" || true
-echo
-echo "[Proxy test]"
-curl -s -o /dev/null -w "%{http_code}\\n" "http://${SEQ_HOSTNAME}/"
-echo
-echo "[Backend test]"
-curl -s -o /dev/null -w "%{http_code}\\n" "http://127.0.0.1:${SEQ_BACKEND_PORT}/"
-echo
-echo "[Seq /api]"
-curl -s -o /dev/null -w "%{http_code}\\n" "http://127.0.0.1:${SEQ_BACKEND_PORT}/api"
-echo
-echo "[Container logs (last 100)]"
-docker logs --tail 100 seq || true
-EOF
-  chmod +x /root/seq-diagnostic.sh
-
-  ok "[SEQ] Installed. First-run admin user: admin (password you entered; ignored if data dir already initialized)"
+  ok "Seq running on http://$PUBLIC_HOST:${SEQ_HTTP_PORT}"
+  say "Ingestion endpoint: http://$PUBLIC_HOST:${SEQ_INGEST_PORT}"
 }
 
-WRITE_LOG_SUMMARY(){
-  echo >> "$LOG_FILE"
-  echo "==================== FINAL SETUP SUMMARY ====================" >> "$LOG_FILE"
-  echo "Date: $(date)" >> "$LOG_FILE"
-  echo "Server: $(hostname)  IP: $(curl -s ifconfig.me 2>/dev/null || echo 'Unknown')" >> "$LOG_FILE"
-  echo >> "$LOG_FILE"
-  if [[ "$INSTALL_KEYCLOAK" =~ ^[Yy]$ ]]; then
-    cat >> "$LOG_FILE" <<EOF
-[Keycloak]
-Version: $KC_VERSION
-Hostname: $KC_HOSTNAME
-Backend:  http://127.0.0.1:$KC_HTTP_PORT
-Admin:    $KC_ADMIN_USER
-Password: $KC_ADMIN_PASSWORD   # <-- delete this file after storing safely
-DB:       $KC_DB_NAME
-DB User:  $KC_DB_USER
-DB Pass:  $KC_DB_PASSWORD      # <-- delete this file after storing safely
-Frame-ancestors: $KC_ALLOWED_FRAME_ANCESTORS
-Systemd:  systemctl status keycloak
-Access:   http://$KC_HOSTNAME/admin/  (use HTTPS after cert)
-Diag:     /root/keycloak-diagnostic.sh
-
-EOF
+# ---------- PostgreSQL ----------
+install_postgres () {
+  say "Installing PostgreSQL $PG_VER..."
+  if ! command -v psql >/dev/null 2>&1; then
+    # Official PGDG
+    curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | gpg --dearmor -o /usr/share/keyrings/pgdg.gpg
+    echo "deb [signed-by=/usr/share/keyrings/pgdg.gpg] http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list
+    apt-get update -y
+    apt-get install -y "postgresql-$PG_VER" "postgresql-client-$PG_VER"
   fi
-  if [[ "$INSTALL_SEQ" =~ ^[Yy]$ ]]; then
-    cat >> "$LOG_FILE" <<EOF
+  systemctl enable --now "postgresql@$PG_VER-main" || systemctl enable --now postgresql || true
+
+  # Create DB/user if needed
+  sudo -u postgres psql -tc "SELECT 1 FROM pg_database WHERE datname='${KC_DB}'" | grep -q 1 || sudo -u postgres createdb "$KC_DB"
+  sudo -u postgres psql -tc "SELECT 1 FROM pg_roles WHERE rolname='${KC_DB_USER}'" | grep -q 1 || sudo -u postgres psql -c "CREATE USER ${KC_DB_USER} WITH PASSWORD '${KC_DB_PASS}';"
+  sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE ${KC_DB} TO ${KC_DB_USER};" || true
+
+  ok "PostgreSQL ready. DB=${KC_DB}, USER=${KC_DB_USER}"
+}
+
+# ---------- KEYCLOAK (Docker) ----------
+install_keycloak () {
+  ensure_docker
+  say "Installing Keycloak (Docker)..."
+  docker pull quay.io/keycloak/keycloak:latest
+
+  if docker ps -a --format '{{.Names}}' | grep -q '^keycloak$'; then
+    warn "Keycloak container already exists. Recreating..."
+    docker rm -f keycloak || true
+  fi
+
+  mkdir -p /opt/keycloak
+  KC_ENV=(-e KEYCLOAK_ADMIN="$KC_ADMIN" -e KEYCLOAK_ADMIN_PASSWORD="$KC_ADMIN_PASS")
+
+  if [[ "${USE_PG,,}" == "y" || -z "$USE_PG" ]]; then
+    # Use external PostgreSQL
+    KC_DB_URL="jdbc:postgresql://${PG_HOST}:${PG_PORT}/${KC_DB}"
+    KC_ENV+=(
+      -e KC_DB=postgres
+      -e KC_DB_URL="$KC_DB_URL"
+      -e KC_DB_USERNAME="$KC_DB_USER"
+      -e KC_DB_PASSWORD="$KC_DB_PASS"
+    )
+  else
+    KC_ENV+=(-e KC_DB=dev-file) # demo/dev mode storage
+  fi
+
+  docker run -d \
+    --name keycloak \
+    --restart unless-stopped \
+    -p "${KC_HTTP_PORT}:8080" \
+    -v /opt/keycloak:/opt/keycloak/data \
+    "${KC_ENV[@]}" \
+    quay.io/keycloak/keycloak:latest \
+    start --http-enabled=true --hostname="${PUBLIC_HOST}" --proxy=edge
+
+  ufw allow "${KC_HTTP_PORT}"/tcp || true
+  ok "Keycloak running at: http://${PUBLIC_HOST}:${KC_HTTP_PORT}"
+}
+
+# ---------- RUN ----------
+WEBMIN_URL=""
+SEQ_URL=""
+KC_URL=""
+PG_SUMMARY=""
+
+if [[ "${DO_WEBMIN,,}" == "y" || -z "$DO_WEBMIN" ]]; then
+  install_webmin
+  WEBMIN_URL="https://${PUBLIC_HOST}:${WEBMIN_PORT}/"
+fi
+
+if [[ "${DO_SEQ,,}" == "y" || -z "$DO_SEQ" ]]; then
+  install_seq
+  SEQ_URL="http://${PUBLIC_HOST}:${SEQ_HTTP_PORT}"
+fi
+
+if [[ "${DO_KC,,}" == "y" || -z "$DO_KC" ]]; then
+  if [[ "${USE_PG,,}" == "y" || -z "$USE_PG" ]]; then
+    install_postgres
+    PG_SUMMARY="PostgreSQL: host=${PG_HOST}, port=${PG_PORT}, db=${KC_DB}, user=${KC_DB_USER}"
+  fi
+  install_keycloak
+  KC_URL="http://${PUBLIC_HOST}:${KC_HTTP_PORT}"
+fi
+
+# ---------- SUMMARY ----------
+say "Writing final summary to ${LOG_FILE} ..."
+cat <<EOF | tee -a "$LOG_FILE"
+
+========================================
+ INSTALLATION SUMMARY (SECRETS INCLUDED)
+========================================
+Host:               ${PUBLIC_HOST}
+
+[Webmin]
+  Installed:        $([[ -n "$WEBMIN_URL" ]] && echo "Yes" || echo "No")
+  URL:              ${WEBMIN_URL}
+  Port:             ${WEBMIN_PORT}
+
 [Seq]
-Hostname:          $SEQ_HOSTNAME
-UI via Apache:     http://$SEQ_HOSTNAME/  (use HTTPS if enabled)
-Backend local:     http://127.0.0.1:$SEQ_BACKEND_PORT/
-TCP ingest:        $SEQ_TCP_INGEST_PORT  CIDR: ${SEQ_TCP_INGEST_CIDR:-N/A}
-Image:             $SEQ_IMAGE
-First-run admin:   admin / $SEQ_ADMIN_PASSWORD  # ignored if data dir pre-initialized
-Data dir:          $SEQ_DATA_DIR
-Diag:              /root/seq-diagnostic.sh
+  Installed:        $([[ -n "$SEQ_URL" ]] && echo "Yes" || echo "No")
+  URL (UI):         ${SEQ_URL}
+  HTTP Port:        ${SEQ_HTTP_PORT}
+  Ingest Port:      ${SEQ_INGEST_PORT}
+  Admin Password:   ${SEQ_ADMIN_PASS}
+  Ingestion API Key:${SEQ_INGEST_KEY}
+  License:          $([[ -n "$SEQ_LICENSE" ]] && echo "(provided)" || echo "(not provided)")}
+  Example .NET Serilog config:
+    WriteTo: Seq serverUrl=http://${PUBLIC_HOST}:${SEQ_HTTP_PORT} apiKey=${SEQ_INGEST_KEY}
+    Ingestion endpoint: http://${PUBLIC_HOST}:${SEQ_INGEST_PORT}
 
+[Keycloak]
+  Installed:        $([[ -n "$KC_URL" ]] && echo "Yes" || echo "No")
+  URL:              ${KC_URL}
+  Port:             ${KC_HTTP_PORT}
+  Admin User:       ${KC_ADMIN}
+  Admin Password:   ${KC_ADMIN_PASS}
+  DB Backend:       $([[ "${USE_PG,,}" == "y" || -z "$USE_PG" ]] && echo "PostgreSQL" || echo "Embedded (dev-file)")}
+  ${PG_SUMMARY:+$PG_SUMMARY}
+  DB Password:      ${KC_DB_PASS:-N/A}
+
+[Firewall/Ports opened]
+  - Webmin: ${WEBMIN_PORT:+$WEBMIN_PORT} (TCP)
+  - Seq UI: ${SEQ_HTTP_PORT:+$SEQ_HTTP_PORT} (TCP)
+  - Seq Ingestion: ${SEQ_INGEST_PORT:+$SEQ_INGEST_PORT} (TCP)
+  - Keycloak: ${KC_HTTP_PORT:+$KC_HTTP_PORT} (TCP)
+
+[Diagnostics]
+  Docker containers:
+$(docker ps --format '    - {{.Names}} ({{.Status}}) -> {{.Ports}}' 2>/dev/null || echo "    (Docker not installed or no containers)")
+
+  Systemd services:
+    - webmin: $(systemctl is-active webmin 2>/dev/null || echo "n/a")
+
+Security Note:
+  This log contains passwords and secrets. To securely remove:
+    shred -u "${LOG_FILE}"
+
+========================================
 EOF
-  fi
 
-  cat >> "$LOG_FILE" <<'EOF'
-[General notes]
-- To remove sensitive info, securely delete this file when done:
-    shred -u /root/setup.log
-- Apache control:
-    systemctl status apache2
-    systemctl reload apache2
-- Firewall rules with UFW:
-    ufw status numbered
-    # remove a rule by number:
-    # ufw delete <number>
-- Let's Encrypt (manual retry):
-    certbot --apache -d <your-domain>
+ok "Done!"
+say "Access URLs:"
+[[ -n "$WEBMIN_URL" ]] && echo "  • Webmin  : $WEBMIN_URL"
+[[ -n "$SEQ_URL"    ]] && echo "  • Seq     : $SEQ_URL"
+[[ -n "$KC_URL"     ]] && echo "  • Keycloak: $KC_URL"
 
-EOF
-  ok "Wrote $LOG_FILE (contains passwords; delete when stored elsewhere)"
-}
-
-main(){
-  require_root
-  PROMPT_ALL
-  APT_PREP
-  if [[ "$INSTALL_KEYCLOAK" =~ ^[Yy]$ ]]; then KC_INSTALL; fi
-  if [[ "$INSTALL_SEQ" =~ ^[Yy]$ ]]; then SEQ_INSTALL; fi
-  WRITE_LOG_SUMMARY
-
-  echo -e "${GREEN}Installation finished.${NC}"
-  echo -e "${YELLOW}Sensitive data was written to: $LOG_FILE${NC}"
-  echo -e "${YELLOW}When done, delete it with: shred -u $LOG_FILE${NC}"
-}
-
-main "$@"
+say "As requested, passwords and usernames are saved in: $LOG_FILE"
+say "When you no longer need it, delete securely with: shred -u \"$LOG_FILE\""

@@ -137,8 +137,10 @@ fi
 
 # ------------- Webmin (bind local + Apache proxy + dedicated 443 vhost) -------------
 log "Installing Webmin…"
-curl -fsSL http://www.webmin.com/jcameron-key.asc | gpg --dearmor -o /usr/share/keyrings/webmin.gpg
-echo "deb [signed-by=/usr/share/keyrings/webmin.gpg] http://download.webmin.com/download/repository sarge contrib" > /etc/apt/sources.list.d/webmin.list
+install -m 0755 -d /etc/apt/keyrings
+curl -fsSL https://download.webmin.com/jcameron-key.asc | gpg --dearmor | tee /etc/apt/keyrings/webmin.gpg >/dev/null
+chmod 644 /etc/apt/keyrings/webmin.gpg
+echo "deb [signed-by=/etc/apt/keyrings/webmin.gpg] https://download.webmin.com/download/repository sarge contrib" > /etc/apt/sources.list.d/webmin.list
 apt-get update -y
 DEBIAN_FRONTEND=noninteractive apt-get install -y webmin
 

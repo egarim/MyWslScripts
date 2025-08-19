@@ -5,6 +5,7 @@
 # - Writes /root/stack_install_YYYYMMDD_HHMMSS.log with ALL details (incl. passwords)
 # Date: 2025-08-18 23:57:37
 set -euo pipefail
+: "${APACHE_LOG_DIR:=/var/log/apache2}"
 
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; BLUE='\033[0;34m'; NC='\033[0m'
 log(){ echo -e "${BLUE}[$(date +'%Y-%m-%d %H:%M:%S')]${NC} $1"; }

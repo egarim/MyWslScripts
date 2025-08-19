@@ -5,6 +5,41 @@
 # - Writes /root/stack_install_YYYYMMDD_HHMMSS.log with ALL details (incl. passwords)
 # Date: 2025-08-18 23:57:37
 set -euo pipefail
+
+: "${APACHE_LOG_DIR:=/var/log/apache2}"
+
+ensure_apache_running() {
+  if ! systemctl is-active --quiet apache2; then
+    systemctl start apache2 || systemctl restart apache2 || true
+  fi
+}
+
+cert_exists() {
+  local dom="$1"
+  certbot certificates 2>/dev/null | awk '/Domains: /{for(i=2;i<=NF;i++) print $i}' | tr ' ' '\n' | grep -Fxq "$dom"
+}
+
+issue_cert() {
+  local dom="$1"
+  local email="$2"
+  # Decide environment
+  local extra=""
+  if [[ "${CERTBOT_ENV:-production}" == "staging" ]]; then
+    extra="--staging"
+  elif [[ "${CERTBOT_ENV:-production}" == "none" ]]; then
+    echo "Skipping certificate for $dom (CERTBOT_ENV=none)"
+    return 0
+  fi
+
+  ensure_apache_running
+  if cert_exists "$dom"; then
+    echo "Certificate already present for $dom; skipping issuance."
+    return 0
+  fi
+
+  certbot --apache -d "$dom" --agree-tos -m "$email" --redirect -n $extra
+}
+
 : "${APACHE_LOG_DIR:=/var/log/apache2}"
 
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; BLUE='\033[0;34m'; NC='\033[0m'
@@ -21,6 +56,13 @@ log "=== Unified configuration (press Enter for defaults) ==="
 
 # Global ACME email (used for cert issuance)
 read -p "ACME email for TLS [admin@example.com]: " ACME_EMAIL; ACME_EMAIL=${ACME_EMAIL:-admin@example.com}
+
+read -p "Let's Encrypt env: production (p) / staging (s) / none (n) [s]: " CERT_CHOICE; CERT_CHOICE=${CERT_CHOICE:-s}
+case "$CERT_CHOICE" in
+  [Pp]) CERTBOT_ENV=production ;;
+  [Nn]) CERTBOT_ENV=none ;;
+  *)    CERTBOT_ENV=staging ;;
+esac
 
 # Webmin
 read -p "Webmin hostname [webmin.example.com]: " W_HOST; W_HOST=${W_HOST:-webmin.example.com}
@@ -213,10 +255,10 @@ a2ensite webmin-le-ssl.conf >/dev/null 2>&1 || true
 
 # Issue/attach Let's Encrypt for Webmin if requested
 if [[ "$W_PROXY" =~ ^[Yy]$ && "$W_SSL" =~ ^[Yy]$ ]]; then
-  certbot --apache -d "$W_HOST" --agree-tos -m "$ACME_EMAIL" --redirect -n || true
+  issue_cert "$W_HOST" "$ACME_EMAIL" || true
 fi
 
-apache2ctl configtest && systemctl reload apache2
+ensure_apache_running; apache2ctl configtest; systemctl reload apache2 || systemctl start apache2 || systemctl restart apache2 || true
 
 # ------------- Seq (Docker + Apache proxy) -------------
 log "Deploying Seq…"
@@ -250,9 +292,9 @@ cat > /etc/apache2/sites-available/seq.conf <<EOF
 </VirtualHost>
 EOF
 a2ensite seq.conf >/dev/null 2>&1 || true
-apache2ctl configtest && systemctl reload apache2
+ensure_apache_running; apache2ctl configtest; systemctl reload apache2 || systemctl start apache2 || systemctl restart apache2 || true
 if [[ "$S_SSL" =~ ^[Yy]$ ]]; then
-  certbot --apache -d "$S_HOST" --agree-tos -m "$ACME_EMAIL" --redirect -n || true
+  issue_cert "$S_HOST" "$ACME_EMAIL" || true
 fi
 
 # ------------- Keycloak (tarball + systemd + Apache proxy + CSP frame-ancestors) -------------
@@ -347,11 +389,11 @@ cat > /etc/apache2/sites-available/keycloak-80.conf <<EOF
 EOF
 a2ensite keycloak-80.conf >/dev/null 2>&1 || true
 
-apache2ctl configtest && systemctl reload apache2
+ensure_apache_running; apache2ctl configtest; systemctl reload apache2 || systemctl start apache2 || systemctl restart apache2 || true
 
 read -p "Obtain Let's Encrypt cert for Keycloak now? (y/N): " KC_SSL
 if [[ "$KC_SSL" =~ ^[Yy]$ ]]; then
-  certbot --apache -d "$K_HOST" --agree-tos -m "$ACME_EMAIL" --redirect -n || true
+  issue_cert "$K_HOST" "$ACME_EMAIL" || true
 fi
 
 echo

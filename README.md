@@ -1,5 +1,15 @@
 # MyWslScripts
 
+## Quick Reference
+
+| Script | Category | Purpose | Quick Install |
+|--------|----------|---------|---------------|
+| `install_rabbitmq_docker.sh` | Messaging | RabbitMQ with MQTT support | [📖 Docs](#install_rabbitmq_dockersh) |
+| `install_mosquitto_clients.sh` | MQTT Tools | Universal MQTT testing tools | [📖 Docs](#install_mosquitto_clientssh) |
+| `install_keycloakp.sh` | Production | Keycloak with PostgreSQL & SSL | [📖 Docs](#install_keycloakpsh-production-keycloak) |
+| `install_seq.sh` | Production | Seq Log Server with Docker | [📖 Docs](#install_seqsh-production-seq-log-server) |
+| `postgres-remote-access.sh` | Database | PostgreSQL remote configuration | [📖 Docs](#postgres-remote-accesssh) |
+
 ## Production-Ready Scripts
 
 The following scripts are production-ready with enhanced security, monitoring, and enterprise features:
@@ -226,6 +236,31 @@ psql -h your_server_ip -U postgres -p 5432
 ### Security Considerations
 
 For security reasons, consider restricting access to specific IP addresses in a production environment by modifying the `pg_hba.conf` file further.
+
+### install_mosquitto_clients.sh
+
+This script provides a comprehensive installer for mosquitto MQTT client tools that work with any MQTT broker. It's a utility script that installs `mosquitto_pub` and `mosquitto_sub` - essential tools for MQTT testing and development.
+
+**Quick Install:**
+```bash
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/egarim/MyWslScripts/refs/heads/master/install_mosquitto_clients.sh)"
+```
+
+**Key Features:**
+- Universal MQTT client tools for any broker (RabbitMQ, Mosquitto, HiveMQ, AWS IoT, etc.)
+- Auto-detects Linux distribution and package manager
+- Interactive installation with comprehensive testing examples
+- Works perfectly in WSL2 environment
+- Essential for MQTT development and troubleshooting
+
+**Usage Examples After Installation:**
+```bash
+# Test any MQTT broker
+mosquitto_pub -h localhost -p 1883 -u admin -P password -t test/topic -m "Hello"
+mosquitto_sub -h localhost -p 1883 -u admin -P password -t test/topic
+```
+
+See the full documentation below for detailed installation and usage instructions.
 
 ## install_ipfsnode.sh
 
@@ -546,12 +581,13 @@ If you encounter issues after installation:
 
 ## install_rabbitmq_docker.sh
 
-This script provides a comprehensive management interface for running RabbitMQ in Docker on WSL2. It handles installation, configuration, and management of a RabbitMQ instance with the management UI enabled. The script features an interactive installation process and provides detailed connection information upon completion.
+This script provides a comprehensive management interface for running RabbitMQ in Docker on WSL2 with full MQTT support. It handles installation, configuration, and management of a RabbitMQ instance with both AMQP and MQTT protocols enabled, including the management UI. The script features an interactive installation process and provides detailed connection information upon completion.
 
 ### Prerequisites
 
 - Docker must be installed and running
 - WSL2 environment
+- Optional: mosquitto-clients for MQTT testing (auto-installed by script)
 
 ### Default Configuration
 
@@ -559,9 +595,13 @@ This script provides a comprehensive management interface for running RabbitMQ i
 - Image: rabbitmq:3-management
 - AMQP Port: 5672
 - Management UI Port: 15672
+- **MQTT Port: 1883** (Non-TLS)
+- **MQTT WebSocket Port: 15675**
+- **MQTT TLS Port: 8883** (Optional, disabled by default)
 - Default Username: admin
 - Default Password: password
 - Data Volume: rabbitmq_data
+- **MQTT Plugins: rabbitmq_mqtt, rabbitmq_web_mqtt (auto-enabled)**
 
 ### Usage
 
@@ -603,10 +643,10 @@ Then you can use any of these commands:
 # Interactive mode (recommended for first-time users)
 ./install_rabbitmq_docker.sh
 
-# Install and start RabbitMQ directly
+# Install and start RabbitMQ with MQTT support directly
 ./install_rabbitmq_docker.sh install
 
-# Check status
+# Check status (includes MQTT plugin status)
 ./install_rabbitmq_docker.sh status
 
 # View logs
@@ -621,42 +661,89 @@ Then you can use any of these commands:
 # Restart RabbitMQ
 ./install_rabbitmq_docker.sh restart
 
+# MQTT-specific commands
+./install_rabbitmq_docker.sh mqtt-test     # Test MQTT connectivity
+./install_rabbitmq_docker.sh mqtt-status   # Detailed MQTT status
+./install_rabbitmq_docker.sh mqtt-enable   # Enable MQTT plugins
+
 # Remove everything
 ./install_rabbitmq_docker.sh remove
+```
+
+### MQTT Testing Examples
+
+After installation, you can test MQTT functionality:
+
+```bash
+# Publish a message to MQTT topic
+mosquitto_pub -h localhost -p 1883 -u admin -P password -t test/topic -m "Hello RabbitMQ MQTT"
+
+# Subscribe to MQTT topic
+mosquitto_sub -h localhost -p 1883 -u admin -P password -t test/topic
+
+# Test from Windows host (replace WSL_IP with your WSL IP)
+mosquitto_pub -h WSL_IP -p 1883 -u admin -P password -t test/topic -m "Hello from Windows"
 ```
 
 ### What the Script Does
 
 Upon successful installation, the script will display:
 
-- Complete connection information (local and remote access)
+- Complete connection information (AMQP, MQTT, and Management UI)
+- **MQTT connection examples and testing commands**
 - Management commands for controlling the container
 - Direct links to the Management UI
+- **MQTT plugin status and verification**
 - WSL2 IP address for remote access from Windows host
-- Real-time accessibility check of the Management UI
+- Real-time accessibility check of the Management UI and MQTT ports
+- **Comprehensive installation log with troubleshooting information**
 - Quick action suggestions
+
+**New MQTT Features:**
+- Automatic MQTT plugin enablement (rabbitmq_mqtt, rabbitmq_web_mqtt)
+- MQTT connectivity testing with mosquitto-clients
+- MQTT-specific status monitoring
+- WebSocket MQTT support for web applications
+- Detailed MQTT troubleshooting guide
 
 ### Available Commands
 
-- `install` - Installs and starts RabbitMQ container with persistence
+**Core Commands:**
+- `install` - Installs and starts RabbitMQ container with MQTT support and persistence
 - `start` - Starts an existing RabbitMQ container
 - `stop` - Stops the running RabbitMQ container
 - `restart` - Restarts the RabbitMQ container
-- `status` - Shows current status, ports, and connection details
+- `status` - Shows current status, ports, MQTT plugin status, and connection details
 - `logs` - Displays container logs in follow mode
 - `remove` - Removes the container and optionally the data volume
 - `help` - Shows usage information and configuration details
 
+**MQTT-Specific Commands:**
+- `mqtt-test` - Performs comprehensive MQTT connectivity testing (publish/subscribe)
+- `mqtt-status` - Shows detailed MQTT status, plugin information, and connection examples
+- `mqtt-enable` - Manually enables MQTT plugins (usually not needed as they're auto-enabled)
+
 ### Features
 
+**Core Features:**
 - **Interactive Installation**: User-friendly prompts for first-time setup
 - **Comprehensive Information Display**: Shows all connection details and management commands after installation
 - **Remote Access Support**: Provides WSL2 IP for access from Windows host
-- **Real-time Health Checks**: Automatically verifies Management UI accessibility
+- **Real-time Health Checks**: Automatically verifies Management UI and MQTT accessibility
 - **Persistent Data Storage**: Uses Docker volumes for data persistence
 - **Management UI Interface**: Enabled by default with admin credentials
 - **Automatic Container Restart**: Container restarts on failure
 - **Colored Status Output**: Better readability with color-coded messages
+
+**MQTT Features:**
+- **Full MQTT Protocol Support**: MQTT 3.1.1 and 5.0 compatibility
+- **WebSocket MQTT**: MQTT over WebSockets for web applications (port 15675)
+- **Automatic Plugin Management**: Auto-enables rabbitmq_mqtt and rabbitmq_web_mqtt plugins
+- **MQTT Testing Suite**: Built-in publish/subscribe testing with mosquitto-clients
+- **TLS MQTT Support**: Optional secure MQTT connections (port 8883)
+- **Comprehensive Logging**: Detailed installation and troubleshooting logs
+- **MQTT Status Monitoring**: Real-time MQTT plugin and connectivity status
+- **Cross-Platform Compatibility**: Works from WSL, Windows, and other MQTT clients
 - **Volume Preservation**: Option to preserve or delete data during removal
 
 ### Accessing RabbitMQ
@@ -687,6 +774,166 @@ The script creates a Docker volume named `rabbitmq_data` to persist:
 - Messages
 - User accounts
 - Virtual hosts
+
+## install_mosquitto_clients.sh
+
+This script provides a comprehensive installer for mosquitto MQTT client tools (`mosquitto_pub` and `mosquitto_sub`) that work with any MQTT broker. These are universal MQTT testing tools essential for MQTT development and troubleshooting, compatible with RabbitMQ, Eclipse Mosquitto, HiveMQ, AWS IoT Core, and any MQTT-compliant broker.
+
+### Prerequisites
+
+- Linux environment (WSL2, Ubuntu, CentOS, Fedora, Alpine, Arch, openSUSE)
+- Package manager (apt, yum, dnf, apk, pacman, zypper)
+- Internet connection for package installation
+
+### What are mosquitto-clients?
+
+**mosquitto-clients** is a package that provides two essential command-line MQTT tools:
+
+- **mosquitto_pub**: Command-line MQTT publisher for sending messages to topics
+- **mosquitto_sub**: Command-line MQTT subscriber for receiving messages from topics
+
+**Important Note**: These are client tools that work with ANY MQTT broker, not just the Eclipse Mosquitto broker. They're the industry standard for MQTT testing regardless of which broker you're using.
+
+### Default Installation
+
+The script automatically detects your Linux distribution and installs the appropriate package:
+
+- **Debian/Ubuntu**: `mosquitto-clients` package via apt-get
+- **RHEL/CentOS/Fedora**: `mosquitto` package via yum/dnf
+- **Alpine**: `mosquitto-clients` package via apk
+- **Arch**: `mosquitto` package via pacman
+- **openSUSE**: `mosquitto` package via zypper
+
+### Usage
+
+#### Option 1: Download and Run Locally
+
+1. Save the script to a file (e.g., `install_mosquitto_clients.sh`)
+2. Make it executable: `chmod +x install_mosquitto_clients.sh`
+3. Run the script: `./install_mosquitto_clients.sh [command]`
+
+#### Option 2: Run Directly from Remote URL
+
+```bash
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/egarim/MyWslScripts/refs/heads/master/install_mosquitto_clients.sh)"
+```
+
+#### Option 3: Interactive Installation
+
+Simply run the script without any commands for an interactive installation:
+
+```bash
+./install_mosquitto_clients.sh
+```
+
+This will check if mosquitto-clients are already installed and prompt you to install them if they're not present.
+
+### Usage Examples
+
+First, make the script executable:
+```bash
+chmod +x install_mosquitto_clients.sh
+```
+
+Then you can use any of these commands:
+```bash
+# Interactive mode (recommended for first-time users)
+./install_mosquitto_clients.sh
+
+# Install mosquitto-clients directly
+./install_mosquitto_clients.sh install
+
+# Test installation and show usage examples
+./install_mosquitto_clients.sh test
+
+# Show help and usage information
+./install_mosquitto_clients.sh help
+```
+
+### MQTT Testing Examples
+
+After installation, you can test any MQTT broker:
+
+```bash
+# Basic publish/subscribe (no authentication)
+mosquitto_pub -h localhost -p 1883 -t test/topic -m "Hello MQTT"
+mosquitto_sub -h localhost -p 1883 -t test/topic
+
+# With authentication (RabbitMQ, HiveMQ, etc.)
+mosquitto_pub -h localhost -p 1883 -u admin -P password -t test/topic -m "Hello MQTT"
+mosquitto_sub -h localhost -p 1883 -u admin -P password -t test/topic
+
+# Remote broker testing
+mosquitto_pub -h broker.example.com -p 1883 -u user -P pass -t sensors/temperature -m "22.5"
+mosquitto_sub -h broker.example.com -p 1883 -u user -P pass -t sensors/+
+
+# Advanced options
+mosquitto_pub -h localhost -p 1883 -t test/topic -m "Hello" -q 1 -r  # QoS 1, retain
+mosquitto_sub -h localhost -p 1883 -t test/topic -C 5              # Exit after 5 messages
+```
+
+### What the Script Does
+
+Upon successful installation, the script will display:
+
+- **Installation Status**: Confirms successful installation and tool availability
+- **Version Information**: Shows installed version and tool locations
+- **Usage Examples**: Comprehensive MQTT testing examples for various scenarios
+- **Advanced Options**: QoS levels, retain messages, multiple topics, etc.
+- **Comprehensive Logging**: Detailed installation log with troubleshooting information
+- **Multi-Broker Compatibility**: Examples for different MQTT broker types
+
+### Available Commands
+
+- `install` - Installs mosquitto-clients package for your Linux distribution
+- `test` - Tests if mosquitto-clients are installed and shows usage examples
+- `help` - Shows detailed help, usage examples, and broker compatibility info
+
+### Features
+
+**Installation Features:**
+- **Multi-Distribution Support**: Automatic detection of Linux distribution and package manager
+- **Interactive Installation**: User-friendly prompts for first-time setup
+- **Verification Testing**: Automatically verifies tools work after installation
+- **Comprehensive Logging**: Detailed installation log with system information and troubleshooting
+- **Error Handling**: Graceful handling of installation failures with manual instructions
+
+**MQTT Testing Features:**
+- **Universal Compatibility**: Works with any MQTT 3.1.1 or 5.0 compliant broker
+- **Authentication Support**: Username/password authentication for secure brokers
+- **QoS Levels**: Support for Quality of Service levels 0, 1, and 2
+- **Message Retention**: Ability to publish retained messages
+- **Topic Wildcards**: Support for + (single level) and # (multi-level) wildcards
+- **Timeout Handling**: Built-in timeout support for automated testing
+- **Multiple Output Formats**: Various output formats for integration with scripts
+
+**Supported MQTT Brokers:**
+- RabbitMQ (with MQTT plugin)
+- Eclipse Mosquitto
+- HiveMQ Community & Enterprise
+- AWS IoT Core
+- Azure IoT Hub
+- Google Cloud IoT Core
+- EMQ X (EMQX)
+- VerneMQ
+- Any MQTT 3.1.1/5.0 compliant broker
+
+### Integration with Other Scripts
+
+This script is designed to work seamlessly with other MQTT-related scripts in this repository:
+
+- **RabbitMQ Script**: The `install_rabbitmq_docker.sh` script automatically calls this installer when needed
+- **Standalone Use**: Can be used independently to test any MQTT broker
+- **Automation Ready**: Perfect for CI/CD pipelines and automated testing
+
+### Troubleshooting
+
+The script includes comprehensive troubleshooting information:
+
+- **Installation Issues**: Permission problems, package manager issues, network connectivity
+- **Tool Accessibility**: PATH issues, terminal restart requirements
+- **MQTT Connection Issues**: Authentication, network, broker configuration problems
+- **Manual Installation**: Step-by-step instructions for unsupported distributions
 - Configuration settings
 
 When removing the container using the `remove` command, you'll be given the option to preserve or delete this data.
